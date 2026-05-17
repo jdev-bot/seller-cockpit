@@ -50,3 +50,4 @@ infra/minio-data/
 infra/postgres-data/
 infra/redis-data/
 gradle/wrapper/*.zip
+**/gradle/wrapper/*.zip

@@ -22,7 +22,7 @@ class ProductCaseService @Inject constructor(
     private val listingDraftRepository: ListingDraftRepository,
     private val marketplaceListingRepository: MarketplaceListingRepository,
     private val pricingEngine: PricingEngine,
-    private val mockAIOrchestrator: MockAIOrchestrator,
+    private val aiOrchestrator: com.sellercockpit.api.ai.pipeline.AIOrchestrator,
     private val listingGenerator: ListingGenerator,
     private val storageService: StorageService
 ) {
@@ -140,7 +140,7 @@ class ProductCaseService @Inject constructor(
         val mediaAssets = mediaAssetRepository.findByProductCaseId(id)
 
         // Run mock AI pipeline
-        val pipelineResult = mockAIOrchestrator.runPipeline(entity, mediaAssets)
+        val pipelineResult = aiOrchestrator.runPipeline(entity, mediaAssets)
 
         entity.productFacts = pipelineResult.productFacts?.let { pf ->
             ProductFactsEmbeddable(
@@ -183,7 +183,7 @@ class ProductCaseService @Inject constructor(
         if (entity.userId != userId) throw NotFoundException()
 
         entity.status = ProductCaseStatus.RESEARCHING
-        val researchResult = mockAIOrchestrator.runResearch(entity)
+        val researchResult = aiOrchestrator.runResearch(entity)
 
         entity.marketResearchResult = MarketResearchEmbeddable(
             estimatedMarketLowAmount = researchResult.estimatedMarketLow.amount,
