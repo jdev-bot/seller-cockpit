@@ -1,167 +1,166 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import { useCallback } from 'react';
+import { useAuth } from './useAuth';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8080';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'https://api.sellercockpit.example.com';
+
+export type ProductCaseStatus =
+  | 'CAPTURED' | 'PROCESSING_MEDIA' | 'NEEDS_USER_INFO' | 'READY_FOR_RESEARCH'
+  | 'RESEARCHING' | 'PRICED' | 'LISTING_READY' | 'PARTIALLY_PUBLISHED'
+  | 'PUBLISHED' | 'SOLD' | 'ARCHIVED' | 'FAILED';
+
+export type SellerMode = 'PRIVATE_DECLUTTERING' | 'PRIVATE_RESELLING' | 'PROFESSIONAL';
 
 export interface ProductCase {
   id: string;
-  userId: string;
-  sellerMode: 'PRIVATE_DECLUTTERING' | 'PRIVATE_RESELLING' | 'PROFESSIONAL';
-  status: string;
+  sellerMode: SellerMode;
+  status: ProductCaseStatus;
   title?: string;
-  productFacts?: {
-    title: string;
-    brand?: string;
-    model?: string;
-    category?: string;
-    variant?: string;
-    color?: string;
-    sizeOrCapacity?: string;
-    accessories: string[];
-    userConfirmed: boolean;
-    confidence: number;
-  };
-  conditionAssessment?: {
-    condition: string;
-    visibleDefects: string[];
-    functionalityConfirmed?: boolean;
-    missingInformation: string[];
-    confidence: number;
-    userConfirmed: boolean;
-  };
-  pricingProfile?: any;
+  productFacts?: any;
+  conditionAssessment?: any;
   pricingRecommendation?: any;
   marketResearchResult?: any;
-  missingQuestions: string[];
-  complianceWarnings: string[];
+  missingQuestions?: string[];
+  listingDrafts?: any;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface DashboardItem {
+export interface UploadUrlResponse {
+  uploadUrl: string;
+  storageUrl: string;
+  mediaAssetId: string;
+}
+
+export interface ListingDraft {
   id: string;
-  title?: string;
-  mode: string;
-  status: string;
-  ebayStatus?: string;
-  kleinanzeigenStatus?: string;
-  nextAction: string;
-}
-
-interface ApiContextType {
-  createProductCase: (mode: string, title?: string) => Promise<ProductCase>;
-  listProductCases: () => Promise<ProductCase[]>;
-  getProductCase: (id: string) => Promise<ProductCase>;
-  updateProductCase: (id: string, data: Partial<ProductCase>) => Promise<ProductCase>;
-  deleteProductCase: (id: string) => Promise<void>;
-  processMedia: (id: string) => Promise<{ jobId: string; status: string }>;
-  answerQuestions: (id: string, answers: Record<string, string>) => Promise<ProductCase>;
-  runResearch: (id: string) => Promise<any>;
-  recalculatePricing: (id: string, profile?: any) => Promise<any>;
-  generateListings: (id: string) => Promise<any[]>;
-  getListingDrafts: (id: string) => Promise<any[]>;
-  publishListing: (draftId: string, platform: string) => Promise<any>;
-  getUploadUrl: (id: string, filename: string, contentType: string) => Promise<{ uploadUrl: string; storageUrl: string; mediaAssetId: string }>;
-  getDashboard: () => Promise<DashboardItem[]>;
-  updateListingStatus: (listingId: string, status: string) => Promise<any>;
-  setExternalUrl: (listingId: string, url: string) => Promise<any>;
-  loading: boolean;
-  error: string | null;
-}
-
-const ApiContext = createContext<ApiContextType | null>(null);
-
-export function ApiProvider({ children }: { children: React.ReactNode }) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const request = useCallback(async <T,>(method: string, path: string, body?: any): Promise<T> => {
-    setLoading(true);
-    setError(null);
-    try {
-      const url = `${API_BASE_URL}${path}`;
-      const opts: RequestInit = {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-      };
-      if (body) opts.body = JSON.stringify(body);
-      const res = await fetch(url, opts);
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(txt || `HTTP ${res.status}`);
-      }
-      if (res.status === 204) return undefined as T;
-      return await res.json();
-    } catch (e: any) {
-      setError(e.message);
-      throw e;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const createProductCase = useCallback((mode: string, title?: string) =>
-    request<ProductCase>('POST', '/api/product-cases', { sellerMode: mode, title }), [request]);
-
-  const listProductCases = useCallback(() =>
-    request<{ items: ProductCase[] }>('GET', '/api/product-cases').then(r => r.items), [request]);
-
-  const getProductCase = useCallback((id: string) =>
-    request<ProductCase>('GET', `/api/product-cases/${id}`), [request]);
-
-  const updateProductCase = useCallback((id: string, data: Partial<ProductCase>) =>
-    request<ProductCase>('PATCH', `/api/product-cases/${id}`, data), [request]);
-
-  const deleteProductCase = useCallback((id: string) =>
-    request<void>('DELETE', `/api/product-cases/${id}`), [request]);
-
-  const processMedia = useCallback((id: string) =>
-    request<{ jobId: string; status: string }>('POST', `/api/product-cases/${id}/process-media`), [request]);
-
-  const answerQuestions = useCallback((id: string, answers: Record<string, string>) =>
-    request<ProductCase>('POST', `/api/product-cases/${id}/answers`, { answers }), [request]);
-
-  const runResearch = useCallback((id: string) =>
-    request<any>('POST', `/api/product-cases/${id}/research`), [request]);
-
-  const recalculatePricing = useCallback((id: string, profile?: any) =>
-    request<any>('POST', `/api/product-cases/${id}/pricing/recalculate`, profile ? { pricingProfile: profile } : undefined), [request]);
-
-  const generateListings = useCallback((id: string) =>
-    request<any[]>('POST', `/api/product-cases/${id}/listing-drafts/generate`), [request]);
-
-  const getListingDrafts = useCallback((id: string) =>
-    request<any[]>('GET', `/api/product-cases/${id}/listing-drafts`), [request]);
-
-  const publishListing = useCallback((draftId: string, platform: string) =>
-    request<any>('POST', `/api/product-cases/listing-drafts/${draftId}/publish`, { platform }), [request]);
-
-  const getUploadUrl = useCallback((id: string, filename: string, contentType: string) =>
-    request<{ uploadUrl: string; storageUrl: string; mediaAssetId: string }>('POST', `/api/product-cases/${id}/media/upload-url`, { filename, contentType }), [request]);
-
-  const getDashboard = useCallback(() =>
-    request<{ productCases: DashboardItem[] }>('GET', '/api/dashboard').then(r => r.productCases), [request]);
-
-  const updateListingStatus = useCallback((listingId: string, status: string) =>
-    request<any>('PATCH', `/api/dashboard/listings/${listingId}/status`, { status }), [request]);
-
-  const setExternalUrl = useCallback((listingId: string, url: string) =>
-    request<any>('PATCH', `/api/dashboard/listings/${listingId}/external-url`, { externalUrl: url }), [request]);
-
-  return (
-    <ApiContext.Provider value={{
-      createProductCase, listProductCases, getProductCase, updateProductCase, deleteProductCase,
-      processMedia, answerQuestions, runResearch, recalculatePricing,
-      generateListings, getListingDrafts, publishListing, getUploadUrl,
-      getDashboard, updateListingStatus, setExternalUrl,
-      loading, error
-    }}>
-      {children}
-    </ApiContext.Provider>
-  );
+  platform: 'EBAY' | 'KLEINANZEIGEN';
+  title: string;
+  description: string;
+  price: { amount: string; currency: string };
+  readyToPublish: boolean;
 }
 
 export function useApi() {
-  const ctx = useContext(ApiContext);
-  if (!ctx) throw new Error('useApi must be inside ApiProvider');
-  return ctx;
+  const auth = useAuth();
+
+  const request = useCallback(async <T>(
+    method: string,
+    path: string,
+    body?: any,
+    contentType?: string
+  ): Promise<T> => {
+    const token = await auth.getIdToken();
+    const url = `${API_BASE}${path}`;
+    const headers: Record<string, string> = {
+      Accept: 'application/json',
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (contentType) headers['Content-Type'] = contentType;
+    else if (body) headers['Content-Type'] = 'application/json';
+
+    const res = await fetch(url, {
+      method,
+      headers,
+      body: body ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined,
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`HTTP ${res.status}: ${text}`);
+    }
+    if (res.status === 204) return undefined as T;
+    return res.json() as Promise<T>;
+  }, [auth]);
+
+  return {
+    // Auth
+    verifyToken: () => request<any>('POST', '/api/auth/verify'),
+
+    // Product cases
+    listProductCases: () =>
+      request<{ items: ProductCase[]; total: number }>('GET', '/api/product-cases').then(r => r.items),
+
+    getProductCase: (id: string) =>
+      request<ProductCase>('GET', `/api/product-cases/${id}`),
+
+    createProductCase: (sellerMode: SellerMode, title?: string) =>
+      request<ProductCase>('POST', '/api/product-cases', { sellerMode, title }),
+
+    updateProductCase: (id: string, updates: Partial<ProductCase>) =>
+      request<ProductCase>('PATCH', `/api/product-cases/${id}`, updates),
+
+    deleteProductCase: (id: string) =>
+      request<void>('DELETE', `/api/product-cases/${id}`),
+
+    // Media
+    getUploadUrl: (productCaseId: string, filename: string, contentType: string) =>
+      request<UploadUrlResponse>('POST', `/api/product-cases/${productCaseId}/media/upload-url`, {
+        filename,
+        contentType,
+      }),
+
+    confirmUpload: (productCaseId: string, storageUrl: string) =>
+      request<void>('POST', `/api/product-cases/${productCaseId}/media/complete`, { storageUrl }),
+
+    // AI Processing
+    processMedia: (id: string) =>
+      request<{ jobId: string; status: string }>('POST', `/api/product-cases/${id}/process-media`),
+
+    getJobStatus: (jobId: string) =>
+      request<any>('GET', `/api/jobs/${jobId}`),
+
+    // Facts>
+    getProductFacts: (id: string) =>
+      request<any>('GET', `/api/product-cases/${id}/facts`),
+
+    updateProductFacts: (id: string, facts: any) =>
+      request<any>('PATCH', `/api/product-cases/${id}/facts`, facts),
+
+    getMissingQuestions: (id: string) =>
+      request<any>('GET', `/api/product-cases/${id}/missing-questions`),
+
+    submitAnswers: (id: string, answers: Record<string, string>) =>
+      request<any>('POST', `/api/product-cases/${id}/answers`, { answers }),
+
+    // Research
+    runResearch: (id: string) =>
+      request<any>('POST', `/api/product-cases/${id}/research`),
+
+    getResearch: (id: string) =>
+      request<any>('GET', `/api/product-cases/${id}/research`),
+
+    // Pricing
+    recalculatePricing: (id: string, pricingProfile?: any) =>
+      request<any>('POST', `/api/product-cases/${id}/pricing/recalculate`, pricingProfile || {}),
+
+    getPricing: (id: string) =>
+      request<any>('GET', `/api/product-cases/${id}/pricing`),
+
+    // Listings
+    generateListings: (id: string) =>
+      request<ListingDraft[]>('POST', `/api/product-cases/${id}/listing-drafts/generate`),
+
+    getListings: (id: string) =>
+      request<ListingDraft[]>('GET', `/api/product-cases/${id}/listing-drafts`),
+
+    updateListingDraft: (draftId: string, updates: Partial<ListingDraft>) =>
+      request<ListingDraft>('PATCH', `/api/listing-drafts/${draftId}`, updates),
+
+    publishListing: (draftId: string) =>
+      request<any>('POST', `/api/listing-drafts/${draftId}/publish`),
+
+    // Marketplace connections
+    listConnections: () =>
+      request<any>('GET', '/api/marketplaces/connections'),
+
+    connectEbay: () =>
+      request<any>('POST', '/api/marketplaces/ebay/connect'),
+
+    assistedPublish: (draftId: string) =>
+      request<any>('POST', `/api/listing-drafts/${draftId}/assisted-publish`),
+
+    // Notifications
+    registerPushToken: (token: string) =>
+      request<void>('POST', '/api/devices/register', { fcmToken: token }),
+  };
 }

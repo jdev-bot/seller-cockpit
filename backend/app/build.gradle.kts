@@ -17,6 +17,9 @@ val quarkusPlatformVersion: String by project
 dependencies {
     implementation(enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}"))
 
+    implementation("io.quarkus:quarkus-smallrye-jwt")
+    implementation("io.quarkus:quarkus-oidc")
+    implementation("io.quarkus:quarkus-oidc-client")
     implementation("org.jsoup:jsoup:1.17.2")
 
     implementation("io.quarkus:quarkus-kotlin")
@@ -25,8 +28,6 @@ dependencies {
     implementation("io.quarkus:quarkus-hibernate-orm-panache-kotlin")
     implementation("io.quarkus:quarkus-jdbc-postgresql")
     implementation("io.quarkus:quarkus-flyway")
-    implementation("io.quarkus:quarkus-oidc")
-    implementation("io.quarkus:quarkus-smallrye-jwt")
     implementation("io.quarkus:quarkus-smallrye-openapi")
     implementation("io.quarkus:quarkus-micrometer-registry-prometheus")
     implementation("io.quarkus:quarkus-vertx")

@@ -1,110 +1,214 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useApi, DashboardItem } from './hooks/useApi';
+import { useApi } from './hooks/useApi';
+import { useAuth } from './hooks/useAuth';
+import { useState } from 'react';
+import { usePushNotifications } from './hooks/usePushNotifications';
+
+const STATUS_LABELS: Record<string, string> = {
+  CAPTURED: 'Captured',
+  PROCESSING_MEDIA: 'Processing',
+  NEEDS_USER_INFO: 'Needs Info',
+  READY_FOR_RESEARCH: 'Ready',
+  RESEARCHING: 'Researching',
+  PRICED: 'Priced',
+  LISTING_READY: 'Listing Ready',
+  PARTIALLY_PUBLISHED: 'Partially Published',
+  PUBLISHED: 'Published',
+  SOLD: 'Sold',
+  ARCHIVED: 'Archived',
+  FAILED: 'Failed',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  CAPTURED: '#6b7280',
+  PROCESSING_MEDIA: '#2563eb',
+  NEEDS_USER_INFO: '#ea580c',
+  READY_FOR_RESEARCH: '#6b7280',
+  RESEARCHING: '#2563eb',
+  PRICED: '#059669',
+  LISTING_READY: '#059669',
+  PARTIALLY_PUBLISHED: '#7c3aed',
+  PUBLISHED: '#7c3aed',
+  SOLD: '#059669',
+  ARCHIVED: '#6b7280',
+  FAILED: '#dc2626',
+};
 
 export default function DashboardScreen() {
   const router = useRouter();
   const api = useApi();
-  const [items, setItems] = useState<DashboardItem[]>([]);
+  const auth = useAuth();
+  const [cases, setCases] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      const data = await api.getDashboard();
-      setItems(data);
-    } catch (e) {
-      console.warn(e);
-    }
-  }, [api]);
+  // Register push notifications
+  usePushNotifications();
 
+  // Redirect to login if not authenticated
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!auth.isLoading && !auth.isAuthenticated) {
+      router.replace('/(login)');
+    }
+  }, [auth.isLoading, auth.isAuthenticated]);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  }, [load]);
-
-  const statusBadgeColor = (status?: string) => {
-    switch (status) {
-      case 'PUBLISHED': case 'ACTIVE': return '#22c55e';
-      case 'SOLD': return '#3b82f6';
-      case 'DRAFT': return '#eab308';
-      case 'FAILED': return '#ef4444';
-      default: return '#6b7280';
+  const load = async () => {
+    try {
+      setLoading(true);
+      const items = await api.listProductCases();
+      setCases(items);
+    } catch (err: any) {
+      console.error('Failed to load cases:', err.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  useEffect(() => {
+    if (auth.isAuthenticated) load();
+  }, [auth.isAuthenticated]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    load();
+  };
+
+  const handleNewProduct = () => {
+    router.push('/product/new');
+  };
+
+  if (auth.isLoading) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  if (!auth.isAuthenticated) {
+    return null; // Will redirect
+  }
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Seller Cockpit</Text>
-        <TouchableOpacity style={styles.newBtn} onPress={() => router.push('/product/new')}>
-          <Text style={styles.newBtnText}>+ New Product</Text>
+        <TouchableOpacity onPress={() => auth.signOut()} style={styles.logoutBtn}>
+          <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={items}
-        keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.card} onPress={() => router.push(`/product/${item.id}`)}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>{item.title || 'Unnamed Product'}</Text>
-              <View style={[styles.badge, { backgroundColor: statusBadgeColor(item.status) }]}>
-                <Text style={styles.badgeText}>{item.status.replace(/_/g, ' ')}</Text>
+      <TouchableOpacity style={styles.newButton} onPress={handleNewProduct}>
+        <Text style={styles.newButtonText}>+ New Product</Text>
+      </TouchableOpacity>
+
+      {loading ? (
+        <ActivityIndicator style={{ marginTop: 40 }} />
+      ) : cases.length === 0 ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyTitle}>No products yet</Text>
+          <Text style={styles.emptyText}>
+            Tap "New Product" to list your first item.
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={cases}
+          keyExtractor={(item) => item.id}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => router.push(`/product/${item.id}`)}
+            >
+              <View style={styles.cardRow}>
+                <Text style={styles.cardTitle}>{item.title || 'Untitled'}</Text>
+                <View
+                  style={[
+                    styles.badge,
+                    { backgroundColor: STATUS_COLORS[item.status] || '#6b7280' },
+                  ]}
+                >
+                  <Text style={styles.badgeText}>
+                    {STATUS_LABELS[item.status] || item.status}
+                  </Text>
+                </View>
               </View>
-            </View>
-            <View style={styles.cardRow}>
-              <Text style={styles.cardMode}>{item.mode.replace(/_/g, ' ')}</Text>
-            </View>
-            <View style={styles.platformRow}>
-              <View style={[styles.platformBadge, { backgroundColor: statusBadgeColor(item.ebayStatus) }]}>
-                <Text style={styles.platformText}>eBay: {item.ebayStatus || '—'}</Text>
+
+              <View style={styles.cardMeta}>
+                <Text style={styles.metaText}>{item.sellerMode?.replace('_', ' ')}</Text>
+                {item.pricingRecommendation?.recommendedPrice && (
+                  <Text style={styles.metaText}>
+                    {item.pricingRecommendation.recommendedPrice.amount} {' '}
+                    {item.pricingRecommendation.recommendedPrice.currency}
+                  </Text>
+                )}
               </View>
-              <View style={[styles.platformBadge, { backgroundColor: statusBadgeColor(item.kleinanzeigenStatus) }]}>
-                <Text style={styles.platformText}>Kleinanzeigen: {item.kleinanzeigenStatus || '—'}</Text>
-              </View>
-            </View>
-            <View style={styles.actionRow}>
-              <Text style={styles.actionText}>Next: {item.nextAction}</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>No products yet. Tap + to start.</Text>
-          </View>
-        }
-      />
+            </TouchableOpacity>
+          )}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
-  header: { padding: 16, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#111827' },
-  newBtn: { backgroundColor: '#2563eb', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
-  newBtnText: { color: '#ffffff', fontWeight: '600', fontSize: 14 },
-  list: { padding: 12, gap: 10 },
-  card: { backgroundColor: '#ffffff', borderRadius: 12, padding: 14, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 2, borderWidth: 1, borderColor: '#f3f4f6' },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#111827', flex: 1, marginRight: 8 },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12 },
-  badgeText: { color: '#ffffff', fontSize: 10, fontWeight: '700', textTransform: 'capitalize' },
-  cardRow: { marginBottom: 4 },
-  cardMode: { fontSize: 12, color: '#6b7280', textTransform: 'capitalize' },
-  platformRow: { flexDirection: 'row', gap: 8, marginTop: 6 },
-  platformBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  platformText: { color: '#ffffff', fontSize: 10, fontWeight: '600' },
-  actionRow: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#f3f4f6' },
-  actionText: { fontSize: 13, color: '#2563eb', fontWeight: '600' },
-  empty: { padding: 40, alignItems: 'center' },
-  emptyText: { color: '#9ca3af', fontSize: 14 },
+  center: { justifyContent: 'center', alignItems: 'center' },
+  header: {
+    padding: 20,
+    paddingTop: 48,
+    backgroundColor: '#111827',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
+  logoutBtn: { padding: 8 },
+  logoutText: { color: '#9ca3af' },
+  newButton: {
+    margin: 16,
+    backgroundColor: '#111827',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  newButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  cardTitle: { fontSize: 16, fontWeight: '600', color: '#111827', flex: 1 },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    marginLeft: 8,
+  },
+  badgeText: { color: '#fff', fontSize: 12, fontWeight: '500' },
+  cardMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  metaText: { color: '#6b7280', fontSize: 13 },
+  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: '#111827', marginBottom: 8 },
+  emptyText: { color: '#6b7280', textAlign: 'center' },
 });

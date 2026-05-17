@@ -5,7 +5,9 @@ import com.sellercockpit.api.service.ProductCaseService
 import jakarta.inject.Inject
 import jakarta.ws.rs.*
 import jakarta.ws.rs.core.MediaType
+import jakarta.ws.rs.core.Context
 import jakarta.ws.rs.core.Response
+import jakarta.ws.rs.core.SecurityContext
 import java.util.UUID
 
 @Path("/api/product-cases")
@@ -14,6 +16,8 @@ import java.util.UUID
 class ProductCaseResource @Inject constructor(
     private val productCaseService: ProductCaseService
 ) {
+    @Context
+    lateinit var securityContext: SecurityContext
 
     @POST
     fun create(request: CreateProductCaseRequest): Response {

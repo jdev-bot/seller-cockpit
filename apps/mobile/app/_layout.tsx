@@ -1,29 +1,79 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
-import { ApiProvider } from './hooks/useApi';
-import { usePushNotifications } from './hooks/usePushNotifications';
+import { AuthProvider } from './hooks/useAuth';
 
 export default function RootLayout() {
-  NotificationsSetup();
   return (
-    <ApiProvider>
-      <Stack>
-        <Stack.Screen name="index" options={{ title: 'Seller Cockpit' }} />
-        <Stack.Screen name="product/new" options={{ title: 'New Product', presentation: 'modal' }} />
-        <Stack.Screen name="product/capture" options={{ title: 'Capture' }} />
-        <Stack.Screen name="product/review" options={{ title: 'Review' }} />
-        <Stack.Screen name="product/research" options={{ title: 'Research' }} />
-        <Stack.Screen name="product/pricing" options={{ title: 'Pricing' }} />
-        <Stack.Screen name="product/listings" options={{ title: 'Listings' }} />
-        <Stack.Screen name="product/tracking" options={{ title: 'Tracking' }} />
+    <AuthProvider>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: '#f8f9fa' },
+        }}
+      >
+        <Stack.Screen name="(login)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="index"
+          options={{
+            title: 'Seller Cockpit',
+            headerShown: true,
+            headerStyle: { backgroundColor: '#111827' },
+            headerTintColor: '#fff',
+            headerTitleStyle: { fontWeight: 'bold' },
+          }}
+        />
+        <Stack.Screen
+          name="product/[id]"
+          options={{
+            title: 'New Product',
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="product/review"
+          options={{
+            title: 'Review Product',
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="product/research"
+          options={{
+            title: 'Market Research',
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="product/pricing"
+          options={{
+            title: 'Pricing',
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="product/listings"
+          options={{
+            title: 'Listings',
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="product/capture"
+          options={{
+            title: 'Capture Product',
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="product/tracking"
+          options={{
+            title: 'Tracking',
+            presentation: 'modal',
+          }}
+        />
       </Stack>
       <StatusBar style="auto" />
-    </ApiProvider>
+    </AuthProvider>
   );
-}
-
-function NotificationsSetup() {
-  usePushNotifications();
-  return null;
 }
