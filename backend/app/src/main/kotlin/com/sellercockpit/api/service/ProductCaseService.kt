@@ -1,6 +1,7 @@
 package com.sellercockpit.api.service
 
 import com.sellercockpit.api.mapper.DomainMapper
+import com.sellercockpit.api.marketplace.EbayService
 import com.sellercockpit.api.model.*
 import com.sellercockpit.api.repository.ListingDraftRepository
 import com.sellercockpit.api.repository.MarketplaceListingRepository
@@ -25,7 +26,8 @@ class ProductCaseService @Inject constructor(
     private val aiOrchestrator: com.sellercockpit.api.ai.pipeline.AIOrchestrator,
     private val listingGenerator: ListingGenerator,
     private val storageService: StorageService,
-    private val mediaProcessingService: MediaProcessingService
+    private val mediaProcessingService: MediaProcessingService,
+    private val ebayService: EbayService
 ) {
 
     @Transactional
@@ -332,19 +334,57 @@ class ProductCaseService @Inject constructor(
         val entity = productCaseRepository.findById(draft.productCaseId) ?: throw NotFoundException()
         if (entity.userId != userId) throw NotFoundException()
 
-        // For MVP, direct publish only for eBay if connected, otherwise assisted/manual
-        val listing = MarketplaceListingEntity().apply {
-            id = UUID.randomUUID()
-            productCaseId = draft.productCaseId
-            platform = request.platform
-            status = MarketplaceListingStatus.READY_TO_PUBLISH
-            title = draft.title
-            description = draft.description
-            priceAmount = draft.priceAmount
-            currency = draft.currency
-            createdAt = Instant.now()
-            updatedAt = Instant.now()
+        val domainCase = DomainMapper.toDomain(entity)
+        val domainDraft = ListingDraft(
+            id = ListingDraftId(draft.id.toString()),
+            productCaseId = ProductCaseId(draft.productCaseId.toString()),
+            platform = draft.platform,
+            title = draft.title,
+            description = draft.description,
+            category = draft.category,
+            conditionText = draft.conditionText,
+            price = Money(draft.priceAmount, draft.currency),
+            imageIds = emptyList(), // populated via media assets if needed
+            attributes = emptyMap(),
+            warnings = emptyList(),
+            readyToPublish = draft.readyToPublish
+        )
+
+        val listing = if (request.platform == MarketplacePlatform.EBAY) {
+            // Delegate to eBay service for real API publish
+            val result = ebayService.createDraftListing(domainCase, domainDraft)
+            // Also publish immediately since user clicked "publish"
+            val published = ebayService.publishListing(result.id.value)
+            MarketplaceListingEntity().apply {
+                id = UUID.fromString(published.id.value)
+                productCaseId = draft.productCaseId
+                platform = request.platform
+                status = published.status
+                title = published.title
+                description = published.description
+                priceAmount = published.price.amount
+                currency = published.price.currency
+                externalListingId = published.externalListingId
+                externalUrl = published.externalUrl
+                createdAt = Instant.now()
+                updatedAt = Instant.now()
+            }
+        } else {
+            // Kleinanzeigen or other: manual/assisted flow
+            MarketplaceListingEntity().apply {
+                id = UUID.randomUUID()
+                productCaseId = draft.productCaseId
+                platform = request.platform
+                status = MarketplaceListingStatus.READY_TO_PUBLISH
+                title = draft.title
+                description = draft.description
+                priceAmount = draft.priceAmount
+                currency = draft.currency
+                createdAt = Instant.now()
+                updatedAt = Instant.now()
+            }
         }
+
         marketplaceListingRepository.persist(listing)
 
         // Update product case status

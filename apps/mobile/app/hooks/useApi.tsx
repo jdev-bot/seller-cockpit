@@ -151,13 +151,28 @@ export function useApi() {
 
     // Marketplace connections
     listConnections: () =>
-      request<any>('GET', '/api/marketplaces/connections'),
+      request<any[]>('GET', '/api/marketplaces/connections'),
 
-    connectEbay: () =>
-      request<any>('POST', '/api/marketplaces/ebay/connect'),
+    getEbayConnectUrl: () =>
+      request<{ url: string; state: string }>('GET', '/api/marketplaces/ebay/connect-url'),
+
+    disconnectEbay: () =>
+      request<any>('DELETE', '/api/marketplaces/ebay/disconnect'),
+
+    publishEbay: (draftId: string) =>
+      request<any>('POST', `/api/marketplaces/ebay/publish/${draftId}`),
+
+    syncEbay: (listingId: string) =>
+      request<any>('POST', `/api/marketplaces/ebay/sync/${listingId}`),
+
+    endEbay: (listingId: string) =>
+      request<any>('POST', `/api/marketplaces/ebay/end/${listingId}`),
+
+    estimateEbayFees: (price: { amount: string; currency: string }, category?: string) =>
+      request<any>('POST', '/api/marketplaces/ebay/fees', { price, category }),
 
     assistedPublish: (draftId: string) =>
-      request<any>('POST', `/api/listing-drafts/${draftId}/assisted-publish`),
+      request<any>('POST', `/api/marketplaces/kleinanzeigen/assisted-publish/${draftId}`),
 
     // Notifications
     registerPushToken: (token: string) =>

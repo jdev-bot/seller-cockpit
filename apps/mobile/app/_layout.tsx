@@ -1,9 +1,22 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React from 'react';
+import React, { useEffect } from 'react';
+import { Linking } from 'react-native';
 import { AuthProvider } from './hooks/useAuth';
 
 export default function RootLayout() {
+  useEffect(() => {
+    // Handle deep links (e.g., seller-cockpit://ebay/callback?code=...)
+    const sub = Linking.addEventListener('url', (event) => {
+      const url = event.url;
+      if (url.includes('/ebay/callback')) {
+        // Route to ebay-callback screen which parses query params
+        // Expo Router handles this automatically if the URL scheme is registered
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
   return (
     <AuthProvider>
       <Stack
@@ -76,6 +89,20 @@ export default function RootLayout() {
           name="product/assisted-publish"
           options={{
             title: 'Publish to Kleinanzeigen',
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="product/ebay-publish"
+          options={{
+            title: 'Publish to eBay',
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="ebay-callback"
+          options={{
+            title: 'eBay Connection',
             presentation: 'modal',
           }}
         />

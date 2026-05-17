@@ -1,5 +1,6 @@
 package com.sellercockpit.api.resource
 
+import com.sellercockpit.api.auth.AuthenticatedUser
 import com.sellercockpit.api.marketplace.EbayService
 import com.sellercockpit.api.marketplace.KleinanzeigenService
 import com.sellercockpit.api.model.*
@@ -7,8 +8,10 @@ import com.sellercockpit.api.service.ProductCaseService
 import com.sellercockpit.domain.model.*
 import jakarta.inject.Inject
 import jakarta.ws.rs.*
+import jakarta.ws.rs.core.Context
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
+import jakarta.ws.rs.core.SecurityContext
 import java.net.URLEncoder
 import java.util.UUID
 
@@ -21,12 +24,19 @@ class MarketplaceResource @Inject constructor(
     private val kleinanzeigenService: KleinanzeigenService
 ) {
 
+    private fun getCurrentUserId(ctx: SecurityContext): UUID {
+        val principal = ctx.userPrincipal as? AuthenticatedUser
+            ?: throw IllegalStateException("Not authenticated")
+        return principal.toUserId()
+    }
+
     // --- eBay OAuth ---
 
     @GET
     @Path("/ebay/connect-url")
-    fun getEbayConnectUrl(): Response {
-        val state = getCurrentUserId().toString()
+    fun getEbayConnectUrl(@Context securityContext: SecurityContext): Response {
+        val userId = getCurrentUserId(securityContext)
+        val state = userId.toString()
         val url = ebayService.getOAuthUrl(state)
         return Response.ok(mapOf("url" to url, "state" to state)).build()
     }
@@ -35,12 +45,18 @@ class MarketplaceResource @Inject constructor(
     @Path("/ebay/callback")
     fun ebayOAuthCallback(
         @QueryParam("code") code: String?,
-        @QueryParam("state") state: String?
+        @QueryParam("state") state: String?,
+        @QueryParam("error") error: String?
     ): Response {
+        if (error != null) {
+            return Response.status(400).entity(mapOf("error" to error, "details" to "User denied eBay authorization")).build()
+        }
         if (code == null) {
             return Response.status(400).entity(mapOf("error" to "Missing authorization code")).build()
         }
-        val userId = UUID.fromString(state ?: getCurrentUserId().toString())
+        val userId = try { UUID.fromString(state ?: "") } catch (e: Exception) {
+            return Response.status(400).entity(mapOf("error" to "Invalid state parameter")).build()
+        }
         val success = ebayService.exchangeCode(userId, code)
         return if (success) {
             Response.ok(mapOf("status" to "connected", "platform" to "EBAY")).build()
@@ -53,11 +69,11 @@ class MarketplaceResource @Inject constructor(
 
     @GET
     @Path("/connections")
-    fun getConnections(): List<ConnectionResponse> {
-        // For MVP, derive from token table. In production this should query MarketplaceConnectionEntity.
+    fun getConnections(@Context securityContext: SecurityContext): List<ConnectionResponse> {
+        val userId = getCurrentUserId(securityContext)
         val connections = mutableListOf<ConnectionResponse>()
         // eBay
-        val ebayToken = com.sellercockpit.api.marketplace.EbayTokenEntity.findValidByUser(getCurrentUserId())
+        val ebayToken = com.sellercockpit.api.marketplace.EbayTokenEntity.findValidByUser(userId)
         if (ebayToken != null) {
             connections.add(ConnectionResponse(
                 platform = MarketplacePlatform.EBAY,
@@ -67,18 +83,36 @@ class MarketplaceResource @Inject constructor(
                 expiresAt = ebayToken.expiresAt.toString()
             ))
         }
+        // Kleinanzeigen (always supported via assisted, not connected)
+        connections.add(ConnectionResponse(
+            platform = MarketplacePlatform.KLEINANZEIGEN,
+            connected = false,
+            accountId = null,
+            connectedAt = null,
+            expiresAt = null
+        ))
         return connections
+    }
+
+    @DELETE
+    @Path("/ebay/disconnect")
+    fun disconnectEbay(@Context securityContext: SecurityContext): Response {
+        val userId = getCurrentUserId(securityContext)
+        ebayService.revokeConnection(userId)
+        return Response.ok(mapOf("status" to "disconnected", "platform" to "EBAY")).build()
     }
 
     // --- Publishing ---
 
     @POST
     @Path("/ebay/publish/{draftId}")
-    fun publishEbay(@PathParam("draftId") draftId: String): Response {
-        // For MVP, delegate through ProductCaseService which handles persistence
-        // Direct eBay publishing would go through ebayService
+    fun publishEbay(
+        @PathParam("draftId") draftId: String,
+        @Context securityContext: SecurityContext
+    ): Response {
+        val userId = getCurrentUserId(securityContext)
         try {
-            val result = productCaseService.publishListing(getCurrentUserId(), UUID.fromString(draftId), PublishRequest(MarketplacePlatform.EBAY))
+            val result = productCaseService.publishListing(userId, UUID.fromString(draftId), PublishRequest(MarketplacePlatform.EBAY))
             return Response.ok(result).build()
         } catch (e: Exception) {
             return Response.serverError().entity(mapOf("error" to e.message)).build()
@@ -107,20 +141,27 @@ class MarketplaceResource @Inject constructor(
 
     @POST
     @Path("/ebay/sync/{listingId}")
-    fun syncEbay(@PathParam("listingId") listingId: String): Response {
-        // Would poll eBay API for status
-        return Response.ok(mapOf("status" to "ACTIVE", "listingId" to listingId)).build()
+    fun syncEbay(@PathParam("listingId") listingId: String, @Context securityContext: SecurityContext): Response {
+        val userId = getCurrentUserId(securityContext)
+        val result = ebayService.syncListingStatus(UUID.fromString(listingId), userId)
+        return Response.ok(mapOf("status" to result.name, "listingId" to listingId)).build()
+    }
+
+    @POST
+    @Path("/ebay/end/{listingId}")
+    fun endEbay(@PathParam("listingId") listingId: String, @Context securityContext: SecurityContext): Response {
+        val userId = getCurrentUserId(securityContext)
+        val result = ebayService.endListing(UUID.fromString(listingId), userId)
+        return Response.ok(result).build()
     }
 
     // --- Fees ---
 
     @POST
     @Path("/ebay/fees")
-    fun estimateEbayFees(request: FeeEstimateRequest): FeeEstimate {
+    fun estimateEbayFees(request: FeeEstimateRequest, @Context securityContext: SecurityContext): FeeEstimate {
         return ebayService.estimateFees(request)
     }
-
-    private fun getCurrentUserId(): UUID = UUID.fromString("00000000-0000-0000-0000-000000000001")
 }
 
 data class ConnectionResponse(

@@ -46,13 +46,14 @@ export default function ListingsScreen() {
     if (!id) return;
     try {
       if (draft.platform === 'KLEINANZEIGEN') {
-        // Assisted publish flow
         router.push(`/product/assisted-publish?id=${id}&draftId=${draft.id}`);
         return;
       }
-      await api.publishListing(draft.id, draft.platform);
-      Alert.alert('Published', `${draft.platform} listing marked as publishing.`);
-      router.push(`/product/tracking?id=${id}`);
+      if (draft.platform === 'EBAY') {
+        // Route to eBay publish screen for real OAuth/API flow
+        router.push(`/product/ebay-publish?id=${id}&draftId=${draft.id}`);
+        return;
+      }
     } catch (e: any) {
       Alert.alert('Publish failed', e.message || 'Unknown error');
     }

@@ -28,7 +28,7 @@ export default function SettingsScreen() {
   const loadSettings = async () => {
     try {
       setLoading(true);
-      const cons = await api.getMarketplaceConnections();
+      const cons = await api.listConnections();
       setConnections(cons || []);
     } catch (e: any) {
       console.warn('Failed to load settings:', e.message);
@@ -37,32 +37,46 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleConnectEbay = () => {
+  const handleConnectEbay = async () => {
+    try {
+      setSaving(true);
+      const { url } = await api.getEbayConnectUrl();
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'Cannot open eBay OAuth URL');
+      }
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to get eBay connect URL');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDisconnectEbay = async () => {
     Alert.alert(
-      'Connect eBay Account',
-      'You will be redirected to eBay to authorize this app.',
+      'Disconnect eBay',
+      'Remove your eBay account connection?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Connect',
-          onPress: () => {
-            Alert.alert('OAuth not configured', 'Please set EBAY_CLIENT_ID and EBAY_REDIRECT_URI in backend.');
+          text: 'Disconnect',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setSaving(true);
+              await api.disconnectEbay();
+              await loadSettings();
+            } catch (e: any) {
+              Alert.alert('Error', e.message || 'Failed to disconnect');
+            } finally {
+              setSaving(false);
+            }
           }
         }
       ]
     );
-  };
-
-  const handleToggleConnection = async (platform: string, connected: boolean) => {
-    try {
-      setSaving(true);
-      await api.updateMarketplaceConnection({ platform, connected, accountName: connected ? undefined : '' });
-      await loadSettings();
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to update connection');
-    } finally {
-      setSaving(false);
-    }
   };
 
   const handleSaveDefaults = () => {
@@ -106,12 +120,12 @@ export default function SettingsScreen() {
           <View style={styles.connInfo}>
             <Text style={styles.connName}>eBay</Text>
             <Text style={styles.connStatus}>
-              {ebayConn?.connected ? `Connected (${ebayConn.accountName || 'Account'})` : 'Not connected'}
+              {ebayConn?.connected ? `Connected (expires ${ebayConn.expiresAt?.slice(0,10) || 'soon'})` : 'Not connected'}
             </Text>
           </View>
           <TouchableOpacity
             style={[styles.connBtn, ebayConn?.connected ? styles.connBtnActive : styles.connBtnInactive]}
-            onPress={ebayConn?.connected ? () => handleToggleConnection('EBAY', false) : handleConnectEbay}
+            onPress={ebayConn?.connected ? handleDisconnectEbay : handleConnectEbay}
             disabled={saving}
           >
             <Text style={styles.connBtnText}>{ebayConn?.connected ? 'Disconnect' : 'Connect'}</Text>
@@ -122,16 +136,12 @@ export default function SettingsScreen() {
           <View style={styles.connInfo}>
             <Text style={styles.connName}>Kleinanzeigen</Text>
             <Text style={styles.connStatus}>
-              {kzConn?.connected ? 'Manual tracking active' : 'Not connected'}
+              {kzConn?.connected ? 'Manual tracking active' : 'Assisted publishing only'}
             </Text>
           </View>
-          <TouchableOpacity
-            style={[styles.connBtn, kzConn?.connected ? styles.connBtnActive : styles.connBtnInactive]}
-            onPress={() => handleToggleConnection('KLEINANZEIGEN', !kzConn?.connected)}
-            disabled={saving}
-          >
-            <Text style={styles.connBtnText}>{kzConn?.connected ? 'Disable' : 'Enable'}</Text>
-          </TouchableOpacity>
+          <View style={[styles.connBtn, { backgroundColor: '#6b7280' }]}>
+            <Text style={[styles.connBtnText, { color: '#fff' }]}>Auto</Text>
+          </View>
         </View>
       </View>
 
