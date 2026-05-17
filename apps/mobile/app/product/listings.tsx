@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, TextInput } from 'react-native';
+import {
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert,
+  TextInput, Clipboard, Linking
+} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useApi } from '../hooks/useApi';
 
@@ -9,6 +12,10 @@ export default function ListingsScreen() {
   const api = useApi();
   const [drafts, setDrafts] = useState<any[]>([]);
   const [generating, setGenerating] = useState(false);
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editPrice, setEditPrice] = useState('');
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -38,12 +45,37 @@ export default function ListingsScreen() {
   const onPublish = async (draft: any) => {
     if (!id) return;
     try {
+      if (draft.platform === 'KLEINANZEIGEN') {
+        // Assisted publish flow
+        router.push(`/product/assisted-publish?id=${id}&draftId=${draft.id}`);
+        return;
+      }
       await api.publishListing(draft.id, draft.platform);
       Alert.alert('Published', `${draft.platform} listing marked as publishing.`);
       router.push(`/product/tracking?id=${id}`);
     } catch (e: any) {
       Alert.alert('Publish failed', e.message || 'Unknown error');
     }
+  };
+
+  const onCopyListing = (draft: any) => {
+    const text = `${draft.title}\n\n${draft.description}\n\nPreis: ${draft.price?.amount?.toFixed?.(2) || draft.price} €`;
+    Clipboard.setString(text);
+    Alert.alert('Copied', 'Listing text copied to clipboard');
+  };
+
+  const onOpenEditor = (draft: any) => {
+    setEditingDraftId(draft.id);
+    setEditTitle(draft.title);
+    setEditDesc(draft.description);
+    setEditPrice(draft.price?.amount?.toFixed?.(2) || '');
+  };
+
+  const onSaveEdit = async () => {
+    // Backend updateListingDraft is a placeholder in useApi; for MVP we just update local state
+    setDrafts(prev => prev.map(d => d.id === editingDraftId ? { ...d, title: editTitle, description: editDesc, price: { ...d.price, amount: parseFloat(editPrice) || d.price.amount } } : d));
+    setEditingDraftId(null);
+    Alert.alert('Saved', 'Draft updated locally. Backend sync not yet wired.');
   };
 
   return (
@@ -68,31 +100,54 @@ export default function ListingsScreen() {
             </View>
           </View>
 
-          <Text style={styles.draftTitle}>{draft.title}</Text>
-          <Text style={styles.draftPrice}>{draft.price?.amount?.toFixed?.(2) || draft.price} €</Text>
+          {editingDraftId === draft.id ? (
+            <>
+              <Text style={styles.label}>Title</Text>
+              <TextInput style={styles.input} value={editTitle} onChangeText={setEditTitle} />
+              <Text style={styles.label}>Description</Text>
+              <TextInput style={[styles.input, { height: 80 }]} multiline value={editDesc} onChangeText={setEditDesc} />
+              <Text style={styles.label}>Price (EUR)</Text>
+              <TextInput style={styles.input} keyboardType="decimal-pad" value={editPrice} onChangeText={setEditPrice} />
+              <View style={styles.actions}>
+                <TouchableOpacity style={[styles.actionBtn, styles.publishBtn]} onPress={onSaveEdit}>
+                  <Text style={styles.actionBtnText}>Save</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.actionBtn, styles.copyBtn]} onPress={() => setEditingDraftId(null)}>
+                  <Text style={styles.actionBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={styles.draftTitle}>{draft.title}</Text>
+              <Text style={styles.draftPrice}>{draft.price?.amount?.toFixed?.(2) || draft.price} €</Text>
 
-          <Text style={styles.label}>Description preview</Text>
-          <Text style={styles.draftDesc} numberOfLines={4}>{draft.description}</Text>
+              <Text style={styles.label}>Description preview</Text>
+              <Text style={styles.draftDesc} numberOfLines={4}>{draft.description}</Text>
 
-          {draft.warnings?.length > 0 && (
-            <View style={styles.warnBox}>
-              {draft.warnings.map((w: string, i: number) => (
-                <Text key={i} style={styles.warnText}>⚠ {w}</Text>
-              ))}
-            </View>
+              {draft.warnings?.length > 0 && (
+                <View style={styles.warnBox}>
+                  {draft.warnings.map((w: string, i: number) => (
+                    <Text key={i} style={styles.warnText}>⚠ {w}</Text>
+                  ))}
+                </View>
+              )}
+
+              <View style={styles.actions}>
+                <TouchableOpacity style={[styles.actionBtn, styles.publishBtn]} onPress={() => onPublish(draft)}>
+                  <Text style={styles.actionBtnText}>
+                    {draft.platform === 'KLEINANZEIGEN' ? 'Assist' : 'Publish'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.actionBtn, styles.copyBtn]} onPress={() => onCopyListing(draft)}>
+                  <Text style={styles.actionBtnText}>Copy</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.actionBtn, styles.editBtn]} onPress={() => onOpenEditor(draft)}>
+                  <Text style={styles.actionBtnText}>Edit</Text>
+                </TouchableOpacity>
+              </View>
+            </>
           )}
-
-          <View style={styles.actions}>
-            <TouchableOpacity style={[styles.actionBtn, styles.publishBtn]} onPress={() => onPublish(draft)}>
-              <Text style={styles.actionBtnText}>Publish</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, styles.copyBtn]} onPress={() => {
-              // In real app, use Clipboard API
-              Alert.alert('Copied', 'Listing content copied to clipboard (mock)');
-            }}>
-              <Text style={styles.actionBtnText}>Copy</Text>
-            </TouchableOpacity>
-          </View>
         </View>
       ))}
     </ScrollView>
@@ -122,7 +177,9 @@ const styles = StyleSheet.create({
   actionBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
   publishBtn: { backgroundColor: '#2563eb' },
   copyBtn: { backgroundColor: '#6b7280' },
+  editBtn: { backgroundColor: '#d97706' },
   actionBtnText: { color: '#ffffff', fontWeight: '700', fontSize: 14 },
+  input: { borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, padding: 10, fontSize: 14, color: '#111827', backgroundColor: '#fafafa', marginBottom: 8 },
   btn: { backgroundColor: '#2563eb', paddingVertical: 14, borderRadius: 10, alignItems: 'center', marginBottom: 10 },
   btnText: { color: '#ffffff', fontWeight: '700', fontSize: 15 },
 });

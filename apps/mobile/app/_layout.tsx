@@ -72,6 +72,20 @@ export default function RootLayout() {
             presentation: 'modal',
           }}
         />
+        <Stack.Screen
+          name="product/assisted-publish"
+          options={{
+            title: 'Publish to Kleinanzeigen',
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="settings/index"
+          options={{
+            title: 'Settings',
+            presentation: 'modal',
+          }}
+        />
       </Stack>
       <StatusBar style="auto" />
     </AuthProvider>

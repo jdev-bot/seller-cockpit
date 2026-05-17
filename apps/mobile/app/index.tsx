@@ -96,9 +96,14 @@ export default function DashboardScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Seller Cockpit</Text>
-        <TouchableOpacity onPress={() => auth.signOut()} style={styles.logoutBtn}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 16 }}>
+          <TouchableOpacity onPress={() => router.push('/settings')}>
+            <Text style={styles.headerIconText}>⚙</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => auth.signOut()}>
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <TouchableOpacity style={styles.newButton} onPress={handleNewProduct}>
