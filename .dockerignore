@@ -1,0 +1,11 @@
+.git
+.gitignore
+.github
+*.md
+apps/mobile/node_modules
+apps/mobile/.expo
+apps/mobile/dist
+apps/mobile/web-build
+infra/minio-data
+infra/postgres-data
+infra/redis-data

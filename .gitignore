@@ -1,0 +1,52 @@
+.idea/
+*.iml
+.gradle/
+build/
+.kotlin/
+*.class
+*.jar
+*.war
+*.ear
+
+# Node / Expo
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.expo/
+.expo-shared/
+dist/
+web-build/
+
+# iOS / Android
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+/ios/Pods/
+/android/app/build/
+
+# Env
+.env
+.env.local
+.env.*.local
+!infra/.env.example
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+*.db
+*.sqlite
+
+# MinIO / local storage
+infra/minio-data/
+infra/postgres-data/
+infra/redis-data/
+gradle/wrapper/*.zip

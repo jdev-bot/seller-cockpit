@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+GRADLE_VER=8.10.1
+GRADLE_ZIP=gradle-$GRADLE_VER-bin.zip
+GRADLE_DIR=gradle-$GRADLE_VER
+if [ ! -d "build/gradle/$GRADLE_DIR" ]; then
+  mkdir -p build/gradle
+  echo "Downloading Gradle $GRADLE_VER..."
+  curl -sL "https://services.gradle.org/distributions/$GRADLE_ZIP" -o "build/gradle/$GRADLE_ZIP"
+  unzip -q "build/gradle/$GRADLE_ZIP" -d build/gradle/
+fi
+exec "build/gradle/$GRADLE_DIR/bin/gradle" "$@"
