@@ -3,6 +3,7 @@ package com.sellercockpit.api.ai.pipeline
 import com.sellercockpit.api.ai.model.*
 import com.sellercockpit.api.ai.provider.AIProvider
 import com.sellercockpit.api.ai.provider.AIProviderRegistry
+import com.sellercockpit.api.research.MarketResearchService
 import com.sellercockpit.api.model.MediaAssetEntity
 import com.sellercockpit.api.model.ProductCaseEntity
 import com.sellercockpit.domain.model.*
