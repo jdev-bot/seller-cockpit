@@ -24,7 +24,8 @@ class ProductCaseService @Inject constructor(
     private val pricingEngine: PricingEngine,
     private val aiOrchestrator: com.sellercockpit.api.ai.pipeline.AIOrchestrator,
     private val listingGenerator: ListingGenerator,
-    private val storageService: StorageService
+    private val storageService: StorageService,
+    private val mediaProcessingService: MediaProcessingService
 ) {
 
     @Transactional
@@ -136,11 +137,19 @@ class ProductCaseService @Inject constructor(
         val entity = productCaseRepository.findById(id) ?: throw NotFoundException()
         if (entity.userId != userId) throw NotFoundException()
 
-        entity.status = ProductCaseStatus.PROCESSING_MEDIA
         val mediaAssets = mediaAssetRepository.findByProductCaseId(id)
 
-        // Run mock AI pipeline
-        val pipelineResult = aiOrchestrator.runPipeline(entity, mediaAssets)
+        // Phase 1: Video frame extraction + AI selection + optimization
+        val mediaResult = mediaProcessingService.processAndExtractFrames(
+            productCaseId = id,
+            allMediaAssets = mediaAssets,
+            productCaseTitle = entity.title,
+            updateStatus = { entity.status = it }
+        )
+
+        // Phase 2: AI pipeline on selected images (photos + extracted frames)
+        val allAssets = mediaAssetRepository.findByProductCaseId(id)
+        val pipelineResult = aiOrchestrator.runPipeline(entity, allAssets)
 
         entity.productFacts = pipelineResult.productFacts?.let { pf ->
             ProductFactsEmbeddable(

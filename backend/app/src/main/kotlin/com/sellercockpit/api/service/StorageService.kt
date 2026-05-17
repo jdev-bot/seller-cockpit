@@ -45,6 +45,36 @@ class StorageService @Inject constructor(
         return "$minioUrl/$bucket/$objectName"
     }
 
+    fun downloadToFile(objectName: String, localFile: java.io.File) {
+        try {
+            client.getObject(
+                io.minio.GetObjectArgs.builder()
+                    .bucket(bucket)
+                    .`object`(objectName)
+                    .build()
+            ).use { stream ->
+                java.nio.file.Files.copy(stream, localFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            }
+        } catch (e: Exception) {
+            throw RuntimeException("Failed to download $objectName from storage", e)
+        }
+    }
+
+    fun uploadFile(objectName: String, localFile: java.io.File, contentType: String) {
+        try {
+            client.putObject(
+                io.minio.PutObjectArgs.builder()
+                    .bucket(bucket)
+                    .`object`(objectName)
+                    .contentType(contentType)
+                    .stream(java.io.FileInputStream(localFile), localFile.length(), -1)
+                    .build()
+            )
+        } catch (e: Exception) {
+            throw RuntimeException("Failed to upload $objectName to storage", e)
+        }
+    }
+
     private fun ensureBucketExists() {
         try {
             if (!client.bucketExists(io.minio.BucketExistsArgs.builder().bucket(bucket).build())) {

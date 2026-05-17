@@ -105,9 +105,12 @@ class ProductCaseResource @Inject constructor(
         return productCaseService.createPresignedUploadUrl(getCurrentUserId(), id, request)
     }
 
-    // Mock auth: extract user ID from a header for MVP. In production this uses JWT / OIDC.
+    // Authenticated via @Context SecurityContext set by FirebaseAuthFilter
     private fun getCurrentUserId(): UUID {
-        // For MVP, create a mock user on first request if needed
-        return UUID.fromString("00000000-0000-0000-0000-000000000001")
+        val firebaseUid = securityContext.userPrincipal?.name
+            ?: throw NotFoundException("Not authenticated")
+        val entity = com.sellercockpit.api.model.UserEntity.find("firebaseUid", firebaseUid).firstResult()
+            ?: throw NotFoundException("User not registered")
+        return entity.id
     }
 }

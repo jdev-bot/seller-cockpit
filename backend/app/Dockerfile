@@ -8,6 +8,7 @@ RUN gradle build -x test --no-daemon
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine
+RUN apk add --no-cache ffmpeg imagemagick
 WORKDIR /app
 COPY --from=builder /app/build/quarkus-app/ .
 EXPOSE 8080
