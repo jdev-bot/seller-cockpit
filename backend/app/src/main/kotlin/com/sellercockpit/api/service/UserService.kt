@@ -2,10 +2,15 @@ package com.sellercockpit.api.service
 
 import com.sellercockpit.api.auth.AuthenticatedUser
 import com.sellercockpit.api.model.UserEntity
+import com.sellercockpit.domain.model.UserId
 import com.sellercockpit.domain.model.User
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.transaction.Transactional
 import java.time.Instant
+import java.util.*
+
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.runBlocking
 
 @ApplicationScoped
 class UserService {
@@ -31,9 +36,9 @@ class UserService {
     }
 
     fun toDomain(entity: UserEntity): User = User(
-        id = entity.id,
+        id = UserId(entity.id.toString()),
         email = entity.email ?: "",
         displayName = entity.displayName,
-        createdAt = entity.createdAt
+        createdAt = entity.createdAt.toString()
     )
 }

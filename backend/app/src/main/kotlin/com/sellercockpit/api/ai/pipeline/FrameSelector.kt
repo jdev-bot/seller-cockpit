@@ -82,7 +82,7 @@ class FrameSelector @Inject constructor() {
 
         // Parse structured response from rawResult.description (AI returns JSON in description field)
         val rankings = try {
-            parseFrameRankings(rawResult.description ?: "", cappedUrls)
+            parseFrameRankings(rawResult.reasoning ?: "", cappedUrls)
         } catch (e: Exception) {
             log.warn("Failed to parse AI frame rankings, using heuristic", e)
             return heuristicFallback(cappedUrls)

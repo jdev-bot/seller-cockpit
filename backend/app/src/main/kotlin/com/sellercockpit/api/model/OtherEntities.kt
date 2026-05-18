@@ -2,6 +2,7 @@ package com.sellercockpit.api.model
 
 import com.sellercockpit.domain.model.*
 import io.quarkus.hibernate.orm.panache.kotlin.PanacheCompanion
+import io.quarkus.hibernate.orm.panache.kotlin.PanacheCompanionBase
 import io.quarkus.hibernate.orm.panache.kotlin.PanacheEntityBase
 import jakarta.persistence.*
 import java.math.BigDecimal
@@ -11,7 +12,7 @@ import java.util.UUID
 @Entity
 @Table(name = "listing_drafts")
 open class ListingDraftEntity : PanacheEntityBase {
-    companion object : PanacheCompanion<ListingDraftEntity>
+    companion object : PanacheCompanionBase<ListingDraftEntity, UUID>
 
     @Id
     @Column(name = "id")
@@ -64,7 +65,7 @@ open class ListingDraftEntity : PanacheEntityBase {
 @Entity
 @Table(name = "marketplace_listings")
 open class MarketplaceListingEntity : PanacheEntityBase {
-    companion object : PanacheCompanion<MarketplaceListingEntity>
+    companion object : PanacheCompanionBase<MarketplaceListingEntity, UUID>
 
     @Id
     @Column(name = "id")
@@ -115,7 +116,7 @@ open class MarketplaceListingEntity : PanacheEntityBase {
 @Entity
 @Table(name = "media_assets")
 open class MediaAssetEntity : PanacheEntityBase {
-    companion object : PanacheCompanion<MediaAssetEntity>
+    companion object : PanacheCompanionBase<MediaAssetEntity, UUID>
 
     @Id
     @Column(name = "id")
@@ -150,7 +151,7 @@ open class MediaAssetEntity : PanacheEntityBase {
 @Entity
 @Table(name = "scan_coverages")
 open class ScanCoverageEntity : PanacheEntityBase {
-    companion object : PanacheCompanion<ScanCoverageEntity>
+    companion object : PanacheCompanionBase<ScanCoverageEntity, UUID>
 
     @Id
     @Column(name = "id")

@@ -114,19 +114,21 @@ object DomainMapper {
         title = dto.title
     )
 
-    fun toEntity(draft: ListingDraft): ListingDraftEntity = ListingDraftEntity(
-        id = UUID.fromString(draft.id.value),
-        productCaseId = UUID.fromString(draft.productCaseId.value),
-        platform = draft.platform,
-        title = draft.title,
-        description = draft.description,
-        category = draft.category,
-        conditionText = draft.conditionText,
-        priceAmount = draft.price.amount,
-        currency = draft.price.currency,
-        imageIds = draft.imageIds.map { it.value },
-        attributes = draft.attributes,
-        warnings = draft.warnings,
-        readyToPublish = draft.readyToPublish
-    )
+    fun toEntity(draft: ListingDraft): ListingDraftEntity {
+        val entity = ListingDraftEntity()
+        entity.id = UUID.fromString(draft.id.value)
+        entity.productCaseId = UUID.fromString(draft.productCaseId.value)
+        entity.platform = draft.platform
+        entity.title = draft.title
+        entity.description = draft.description
+        entity.category = draft.category
+        entity.conditionText = draft.conditionText
+        entity.priceAmount = draft.price.amount
+        entity.currency = draft.price.currency
+        entity.imageIds = draft.imageIds.map { it.value }
+        entity.attributes = draft.attributes
+        entity.warnings = draft.warnings
+        entity.readyToPublish = draft.readyToPublish
+        return entity
+    }
 }

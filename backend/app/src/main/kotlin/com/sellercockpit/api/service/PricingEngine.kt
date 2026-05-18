@@ -118,14 +118,14 @@ class PricingEngine {
         val purchasePrice = input.purchasePrice?.amount
             ?: return fallbackRecommendation(input, "Purchase price required for professional mode")
 
-        val purchaseNet = if (input.taxProfile?.purchasePriceIncludesVat == true) {
-            purchasePrice / (ONE + (input.taxProfile.vatRatePercent ?: (VAT_19 * HUNDRED)) / HUNDRED)
+        val purchaseNet = if (input.purchasePriceIncludesVat == true) {
+            purchasePrice / (ONE + (input.taxProfile?.vatRatePercent ?: (VAT_19 * HUNDRED)) / HUNDRED)
         } else purchasePrice
 
         val vatRate = input.taxProfile?.vatRatePercent?.divide(HUNDRED) ?: VAT_19
         val shipping = input.shippingCost?.amount ?: DEFAULT_SHIPPING
         val packaging = input.packagingCost?.amount ?: DEFAULT_PACKAGING
-        val other = input.taxProfile?.otherCosts?.amount ?: BigDecimal.ZERO
+        val other = input.otherCosts?.amount ?: BigDecimal.ZERO
         val targetMargin = input.targetMarginPercent?.divide(HUNDRED) ?: BigDecimal("0.25")
         val platformFeePct = DEFAULT_PLATFORM_FEE_PERCENT
 

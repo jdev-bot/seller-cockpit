@@ -1,7 +1,7 @@
 package com.sellercockpit.api.model
 
 import com.sellercockpit.domain.model.*
-import io.quarkus.hibernate.orm.panache.kotlin.PanacheCompanion
+import io.quarkus.hibernate.orm.panache.kotlin.PanacheCompanionBase
 import io.quarkus.hibernate.orm.panache.kotlin.PanacheEntityBase
 import jakarta.persistence.*
 import java.time.Instant
@@ -10,7 +10,7 @@ import java.util.UUID
 @Entity
 @Table(name = "marketplace_connections")
 open class MarketplaceConnectionEntity : PanacheEntityBase {
-    companion object : PanacheCompanion<MarketplaceConnectionEntity> {
+    companion object : PanacheCompanionBase<MarketplaceConnectionEntity, UUID> {
         fun findByUserAndPlatform(userId: UUID, platform: MarketplacePlatform) =
             find("userId = ?1 and platform = ?2", userId, platform).firstResult()
     }

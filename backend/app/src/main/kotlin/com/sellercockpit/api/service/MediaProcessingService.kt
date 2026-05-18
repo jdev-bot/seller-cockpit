@@ -1,6 +1,7 @@
 package com.sellercockpit.api.service
 
 import com.sellercockpit.api.ai.pipeline.AIOrchestrator
+import kotlinx.coroutines.runBlocking
 import com.sellercockpit.api.ai.pipeline.FrameSelector
 import com.sellercockpit.api.ai.provider.AIProviderRegistry
 import com.sellercockpit.api.media.ImageOptimizationService
@@ -123,13 +124,13 @@ class MediaProcessingService @Inject constructor(
                         thumbnailUrl = opt.thumbnailFile?.let { thumbStorageUrl }
                         selectedForListing = true
                         metadata = mapOf(
-                            "sourceVideo" to video.storageUrl,
+                            "sourceVideo" to (video.storageUrl ?: ""),
                             "frameNumber" to (idx + 1).toString(),
                             "width" to opt.width.toString(),
                             "height" to opt.height.toString(),
                             "fileSizeBytes" to opt.fileSizeBytes.toString(),
                             "wasNormalized" to opt.wasNormalized.toString(),
-                            "extractedAt" to extractedFrames.getOrNull(idx)?.timestampSec?.toString() ?: "0"
+                            "extractedAt" to (extractedFrames.getOrNull(idx)?.timestampSec?.toString() ?: "0")
                         )
                         createdAt = Instant.now()
                     }
@@ -180,7 +181,7 @@ class MediaProcessingService @Inject constructor(
         val imageUrls = imageAssets.map { storageService.getPublicUrl(it.storageUrl) }
 
         return try {
-            val result = frameSelector.selectFrames(imageUrls, productTitle, provider)
+            val result = runBlocking { frameSelector.selectFrames(imageUrls, productTitle, provider) }
             result.mainImage?.frameIndex?.let { idx ->
                 imageAssets.getOrNull(idx)?.id
             } ?: imageAssets.firstOrNull()?.id

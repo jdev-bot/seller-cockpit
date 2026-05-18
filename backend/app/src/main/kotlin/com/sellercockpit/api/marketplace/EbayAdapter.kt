@@ -51,9 +51,13 @@ class EbayAdapter : MarketplaceAdapter {
 
     override suspend fun estimateFees(request: FeeEstimateRequest): FeeEstimate {
         val fee = request.price * java.math.BigDecimal("0.11")
+        val insertion = Money(fee.amount * java.math.BigDecimal("0.05"), fee.currency)
+        val finalValue = Money(fee.amount * java.math.BigDecimal("0.06"), fee.currency)
         return FeeEstimate(
-            platformFee = Money(fee.amount, fee.currency),
-            totalFee = Money(fee.amount, fee.currency)
+            insertionFee = insertion,
+            finalValueFee = finalValue,
+            totalEstimatedFee = insertion + finalValue,
+            currency = fee.currency
         )
     }
 }

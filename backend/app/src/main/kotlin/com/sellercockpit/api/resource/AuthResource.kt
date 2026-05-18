@@ -20,23 +20,22 @@ class AuthResource @Inject constructor(
     @POST
     @Path("/verify")
     fun verifyToken(@Context sc: SecurityContext): AuthVerifyResponse {
-        val user = sc.userPrincipal as? AuthenticatedUser?.let {
-            val entity = userService.findOrCreateUser(it)
-            AuthVerifyResponse(
-                userId = entity.id.toString(),
-                firebaseUid = it.firebaseUid,
-                email = it.email,
-                displayName = it.displayName,
-                registered = true
+        val authUser = sc.userPrincipal as? AuthenticatedUser
+            ?: return AuthVerifyResponse(
+                userId = "",
+                firebaseUid = "",
+                email = null,
+                displayName = null,
+                registered = false
             )
-        } ?: AuthVerifyResponse(
-            userId = "",
-            firebaseUid = "",
-            email = null,
-            displayName = null,
-            registered = false
+        val entity = userService.findOrCreateUser(authUser)
+        return AuthVerifyResponse(
+            userId = entity.id.toString(),
+            firebaseUid = authUser.firebaseUid,
+            email = authUser.email,
+            displayName = authUser.displayName,
+            registered = true
         )
-        return user
     }
 
     @GET

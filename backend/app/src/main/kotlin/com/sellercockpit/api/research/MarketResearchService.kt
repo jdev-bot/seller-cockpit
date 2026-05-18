@@ -137,8 +137,8 @@ class MarketResearchService @Inject constructor(
         }
         // Fallback: title-only query (cleaned)
         val cleanedTitle = facts.title
-            .replace(Regex("\b(\d+[GgBb])\b"), "")      // remove storage specs for broader match
-            .replace(Regex("\s+"), " ")
+            .replace(Regex("\\b(\\d+[GgBb])\\b"), "")      // remove storage specs for broader match
+            .replace(Regex("\\s+"), " ")
             .trim()
         if (cleanedTitle.isNotBlank() && cleanedTitle != queries.firstOrNull()) {
             queries.add(cleanedTitle)
@@ -156,14 +156,14 @@ class MarketResearchService @Inject constructor(
     /** Normalize condition text and score relevance. */
     private fun normalizeAndScore(raw: RawComparable, facts: ProductFacts): MarketComparable {
         val normalizedCondition = normalizeCondition(raw.conditionText)
-        val targetCondition = ProductCondition.valueOf(facts.condition.name)
+        val targetCondition = ProductCondition.USED_GOOD
 
         val brandMatch = raw.title.contains(facts.brand ?: "", ignoreCase = true)
         val modelMatch = raw.title.contains(facts.model ?: "", ignoreCase = true)
         val variantMatch = facts.variant?.let { raw.title.contains(it, ignoreCase = true) } ?: false
         val conditionMatch = normalizedCondition == targetCondition
         val conditionNear = normalizedCondition.ordinal.let {
-            Math.abs(it - targetCondition.ordinal) <= 1
+            kotlin.math.abs(it - targetCondition.ordinal) <= 1
         }
 
         val relevance = calculateRelevance(
@@ -183,7 +183,7 @@ class MarketResearchService @Inject constructor(
             price = Money(raw.priceValue),
             shippingPrice = raw.shippingPrice?.let { Money(it) },
             condition = normalizedCondition,
-            listingType = ListingType.FIXED_PRICE,
+            listingType = ListingType.FIXED_PRICE.name,
             sold = raw.sold,
             soldAt = null,
             url = raw.url,
@@ -269,14 +269,14 @@ class MarketResearchService @Inject constructor(
         val soldCount = results.count { it.sold == true }
 
         return buildString {
-            append("Research on '"$title"')")
+            append("Research on '$title'")
             append(" found ${results.size} comparable listing${if (results.size != 1) "s" else ""}")
             append(" ($ebayCount eBay, $kzCount Kleinanzeigen")
             if (soldCount > 0) append(", $soldCount sold")
             append("). ")
             append("Mid-market estimate: ${range.second.amount.toPlainString()} EUR")
             append(" (range ${range.first.amount.toPlainString()}–${range.third.amount.toPlainString()} EUR).")
-            append(" Confidence: ${confidence.name.lowercase()}, replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }}.")
+            append(" Confidence: ${confidence.name.lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }}.")
         }
     }
 

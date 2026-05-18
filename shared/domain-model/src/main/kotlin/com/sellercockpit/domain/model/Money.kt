@@ -1,10 +1,12 @@
 package com.sellercockpit.domain.model
 
+import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import java.math.BigDecimal
 
 @Serializable
 data class Money(
+    @Contextual
     val amount: BigDecimal,
     val currency: String = "EUR"
 ) {

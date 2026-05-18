@@ -149,7 +149,7 @@ class ImageOptimizationService {
     private fun resize(img: BufferedImage, targetW: Int, targetH: Int): BufferedImage {
         val scaled = BufferedImage(targetW, targetH, BufferedImage.TYPE_INT_RGB)
         val g2 = scaled.createGraphics()
-        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_LANCZOS)
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC)
         g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
         g2.drawImage(img, 0, 0, targetW, targetH, null)

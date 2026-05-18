@@ -50,9 +50,12 @@ class KleinanzeigenService : MarketplaceAdapter {
     }
 
     override suspend fun estimateFees(request: FeeEstimateRequest): FeeEstimate {
+        val zero = Money.zero()
         return FeeEstimate(
-            platformFee = Money.zero(),
-            totalFee = Money.zero()
+            insertionFee = zero,
+            finalValueFee = zero,
+            totalEstimatedFee = zero,
+            currency = "EUR"
         )
     }
 }

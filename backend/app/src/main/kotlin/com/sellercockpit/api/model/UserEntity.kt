@@ -1,6 +1,6 @@
 package com.sellercockpit.api.model
 
-import io.quarkus.hibernate.orm.panache.kotlin.PanacheCompanion
+import io.quarkus.hibernate.orm.panache.kotlin.PanacheCompanionBase
 import io.quarkus.hibernate.orm.panache.kotlin.PanacheEntityBase
 import jakarta.persistence.*
 import java.time.Instant
@@ -8,7 +8,7 @@ import java.time.Instant
 @Entity
 @Table(name = "sc_users")
 class UserEntity : PanacheEntityBase {
-    companion object : PanacheCompanion<UserEntity>
+    companion object : PanacheCompanionBase<UserEntity, java.util.UUID>
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

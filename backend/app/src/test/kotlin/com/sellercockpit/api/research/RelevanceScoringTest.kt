@@ -25,7 +25,7 @@ class RelevanceScoringTest {
     fun `quantile returns correct values`() {
         val sorted = listOf(10, 20, 30, 40, 50, 60, 70, 80, 90, 100).map { BigDecimal(it) }
         assertEquals(BigDecimal("10"), quantile(sorted, 0.0))
-        assertEquals(BigDecimal("55"), quantile(sorted, 0.5)) // idx=4.5 -> int 4.5=4 -> idx=4=50... actually int cast: (0.5*9)=4.5 -> 4 -> sorted[4]=50
+        assertEquals(BigDecimal("50"), quantile(sorted, 0.5)) // idx=(0.5*9)=4.5 -> toInt()=4 -> sorted[4]=50
         assertEquals(BigDecimal("100"), quantile(sorted, 1.0))
     }
 
@@ -84,8 +84,8 @@ class RelevanceScoringTest {
         if (text == null) return ProductCondition.UNKNOWN
         val t = text.lowercase()
         return when {
-            t.contains("neu") && !t.contains("gebraucht") -> ProductCondition.NEW
             t.contains("wie neu") || t.contains("like new") || t.contains("mint") -> ProductCondition.LIKE_NEW
+            t.contains("neu") && !t.contains("gebraucht") -> ProductCondition.NEW
             t.contains("sehr gut") || t.contains("excellent") || t.contains("very good") -> ProductCondition.USED_VERY_GOOD
             t.contains("gut") || t.contains("good") && !t.contains("sehr") -> ProductCondition.USED_GOOD
             t.contains("gebraucht") || t.contains("used") || t.contains("fair") -> ProductCondition.USED_ACCEPTABLE
@@ -95,10 +95,10 @@ class RelevanceScoringTest {
     }
 
     private fun extractPrice(text: String): BigDecimal? {
-        val cleaned = text.replace(Regex("[ \t]*VB[ \t]*", RegexOption.IGNORE_CASE), "")
+        val cleaned = text.replace(Regex("""[ \t]*VB[ \t]*""", RegexOption.IGNORE_CASE), "")
             .replace(".", "")
             .replace(",", ".")
-            .replace(Regex("[^\d.]"), "")
+            .replace(Regex("""[^\d.]"""), "")
             .trim()
         if (cleaned.isBlank()) return null
         return cleaned.toBigDecimalOrNull()
@@ -113,8 +113,8 @@ class RelevanceScoringTest {
             queries.add(q.trim())
         }
         val cleaned = facts.title
-            .replace(Regex("\b(\d+[GgBb])\b"), "")
-            .replace(Regex("\s+"), " ")
+            .replace(Regex("""\b(\d+[GgBb])\b"""), "")
+            .replace(Regex("""\s+"""), " ")
             .trim()
         if (cleaned.isNotBlank()) queries.add(cleaned)
         return queries.distinct()

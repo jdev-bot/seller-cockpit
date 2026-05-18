@@ -37,7 +37,7 @@ class EbayService @Inject constructor(
     @ConfigProperty(name = "ebay.auth-url", defaultValue = "https://auth.ebay.com") private val authUrl: String,
     @ConfigProperty(name = "ebay.redirect-uri", defaultValue = "http://localhost:8080/api/marketplaces/ebay/callback") private val redirectUri: String,
     @ConfigProperty(name = "security.encryption-key", defaultValue = "") private val encryptionKey: String
-) {
+) : MarketplaceAdapter {
 
     private val log = Logger.getLogger(javaClass)
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(30)).build()
@@ -378,6 +378,45 @@ class EbayService @Inject constructor(
         )
     }
 
+    override suspend fun syncListingStatus(listingId: String): MarketplaceListingStatus {
+        val uuid = UUID.fromString(listingId)
+        val entity = MarketplaceListingEntity.findById(uuid) ?: return MarketplaceListingStatus.FAILED
+        val token = getToken(entity.productCaseId) ?: return entity.status
+        return syncListingStatusInternal(entity, token)
+    }
+
+    private fun syncListingStatusInternal(entity: MarketplaceListingEntity, token: String): MarketplaceListingStatus {
+        val offerId = entity.externalListingId ?: return entity.status
+        val request = HttpRequest.newBuilder()
+            .uri(URI.create("$baseUrl/sell/inventory/v1/offer/$offerId"))
+            .header("Authorization", "Bearer $token")
+            .GET()
+            .build()
+        return try {
+            val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+            if (response.statusCode() == 200) {
+                val obj = json.parseToJsonElement(response.body()).jsonObject
+                val status = obj["status"]?.jsonPrimitive?.content
+                val mapped = when (status?.uppercase()) {
+                    "PUBLISHED" -> MarketplaceListingStatus.PUBLISHED
+                    "ACTIVE" -> MarketplaceListingStatus.ACTIVE
+                    "ENDED" -> MarketplaceListingStatus.REMOVED
+                    "UNPUBLISHED" -> MarketplaceListingStatus.DRAFT
+                    else -> entity.status
+                }
+                entity.status = mapped
+                entity.lastSyncedAt = Instant.now()
+                entity.updatedAt = Instant.now()
+                mapped
+            } else {
+                entity.status
+            }
+        } catch (e: Exception) {
+            log.error("eBay sync error for listing ${entity.id}", e)
+            entity.status
+        }
+    }
+
     fun syncListingStatus(listingId: UUID, userId: UUID): MarketplaceListingStatus {
         val entity = MarketplaceListingEntity.findById(listingId) ?: return MarketplaceListingStatus.FAILED
         val token = getToken(userId) ?: return entity.status
@@ -416,13 +455,15 @@ class EbayService @Inject constructor(
     }
 
     override suspend fun estimateFees(request: FeeEstimateRequest): FeeEstimate {
-        val insertionFee = Money(java.math.BigDecimal.ZERO)
-        val finalValueFee = request.price * java.math.BigDecimal("0.11")
+        val fee = request.price * java.math.BigDecimal("0.11")
+        val insertionFee = Money(java.math.BigDecimal.ZERO, request.price.currency)
+        val finalValueFee = Money(fee.amount, request.price.currency)
         return FeeEstimate(
-            platformFee = finalValueFee,
             insertionFee = insertionFee,
             finalValueFee = finalValueFee,
-            totalFee = finalValueFee
+            featuredFee = null,
+            totalEstimatedFee = finalValueFee,
+            currency = request.price.currency
         )
     }
 }

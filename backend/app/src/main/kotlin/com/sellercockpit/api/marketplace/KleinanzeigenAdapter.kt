@@ -53,8 +53,10 @@ class KleinanzeigenAdapter : MarketplaceAdapter {
     override suspend fun estimateFees(request: FeeEstimateRequest): FeeEstimate {
         // Kleinanzeigen private sales typically have no fees
         return FeeEstimate(
-            platformFee = Money.zero(),
-            totalFee = Money.zero()
+            insertionFee = Money.zero(),
+            finalValueFee = Money.zero(),
+            totalEstimatedFee = Money.zero(),
+            currency = "EUR"
         )
     }
 }

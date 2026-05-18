@@ -1,5 +1,6 @@
 package com.sellercockpit.api.resource
 
+import com.sellercockpit.domain.model.PricingRecommendation
 import com.sellercockpit.api.model.*
 import com.sellercockpit.api.service.ProductCaseService
 import jakarta.inject.Inject

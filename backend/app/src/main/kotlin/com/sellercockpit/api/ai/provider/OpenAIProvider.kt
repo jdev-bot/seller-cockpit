@@ -180,7 +180,7 @@ class OpenAIProvider @Inject constructor(
             appendLine("  \"estimatedMarketMid\": {\"amount\": 45.00, \"currency\": \"EUR\"},")
             appendLine("  \"estimatedMarketHigh\": {\"amount\": 65.00, \"currency\": \"EUR\"},")
             appendLine("  \"comparables\": [")
-            appendLine("    {\")
+            appendLine("    {")
             appendLine("      \"id\": \"comp-1\",")
             appendLine("      \"platform\": \"EBAY\",")
             appendLine("      \"title\": \"similar listing\",")

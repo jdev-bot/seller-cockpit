@@ -30,15 +30,3 @@ data class ListingUpdate(
 data class EndListingReason(
     val reason: String
 )
-
-data class FeeEstimateRequest(
-    val price: Money,
-    val category: String? = null
-)
-
-data class FeeEstimate(
-    val platformFee: Money,
-    val insertionFee: Money? = null,
-    val finalValueFee: Money? = null,
-    val totalFee: Money
-)

@@ -75,20 +75,21 @@ class KleinanzeigenHtmlScraper {
 
     private fun selectArticles(doc: Document): List<Element> {
         // Primary: article elements with data-adid (most stable)
-        var articles = doc.select("article[data-adid]")
+        var articles = doc.select("article[data-adid]").toMutableList()
         if (articles.isEmpty()) {
             // Fallback 1: article elements
-            articles = doc.select("article")
+            articles = doc.select("article").toMutableList()
         }
         if (articles.isEmpty()) {
             // Fallback 2: search result item containers
-            articles = doc.select("[class*=aditem], [class*=AdItem], .ad-listitem")
+            articles = doc.select("[class*=aditem], [class*=AdItem], .ad-listitem").toMutableList()
         }
         if (articles.isEmpty()) {
             // Fallback 3: any element with price
             articles = doc.select("[class*=price]")
                 .mapNotNull { it.closest("article") ?: it.closest("[class*=aditem]") ?: it.parent() }
                 .distinct()
+                .toMutableList()
         }
         return articles
     }
@@ -178,10 +179,10 @@ class KleinanzeigenHtmlScraper {
 
     private fun extractPrice(text: String): BigDecimal? {
         // Match patterns like "45 €", "45,50 €", "45.00 EUR", "VB 30 €"
-        val cleaned = text.replace(Regex("[\s]*VB[\s]*", RegexOption.IGNORE_CASE), "")
+        val cleaned = text.replace(Regex("[\\s]*VB[\\s]*", RegexOption.IGNORE_CASE), "")
             .replace(".", "")  // thousand separator
             .replace(",", ".") // decimal separator
-            .replace(Regex("[^\d.]"), "") // keep only digits and dots
+            .replace(Regex("[^0-9.]"), "") // keep only digits and dots
             .trim()
         if (cleaned.isBlank()) return null
         return cleaned.toBigDecimalOrNull()
@@ -205,7 +206,7 @@ class KleinanzeigenHtmlScraper {
         return when {
             lower.contains("heute") -> Instant.now().truncatedTo(ChronoUnit.DAYS)
             lower.contains("gestern") -> Instant.now().minus(1, ChronoUnit.DAYS).truncatedTo(ChronoUnit.DAYS)
-            lower.matches(Regex("\d{2}\.\d{2}\.\d{4}")) -> {
+            lower.matches(Regex("\\d{2}\\.\\d{2}\\.\\d{4}")) -> {
                 LocalDateTime.parse(text + "T00:00:00", DateTimeFormatter.ofPattern("dd.MM.yyyy'T'HH:mm:ss"))
                     .toInstant(ZoneOffset.UTC)
             }

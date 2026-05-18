@@ -14,6 +14,7 @@ import jakarta.ws.rs.core.Response
 import jakarta.ws.rs.core.SecurityContext
 import java.net.URLEncoder
 import java.util.UUID
+import kotlinx.coroutines.runBlocking
 
 @Path("/api/marketplaces")
 @Produces(MediaType.APPLICATION_JSON)
@@ -160,7 +161,7 @@ class MarketplaceResource @Inject constructor(
     @POST
     @Path("/ebay/fees")
     fun estimateEbayFees(request: FeeEstimateRequest, @Context securityContext: SecurityContext): FeeEstimate {
-        return ebayService.estimateFees(request)
+        return runBlocking { ebayService.estimateFees(request) }
     }
 }
 

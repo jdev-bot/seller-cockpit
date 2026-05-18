@@ -15,6 +15,7 @@ import jakarta.ws.rs.NotFoundException
 import java.math.BigDecimal
 import java.time.Instant
 import java.util.*
+import kotlinx.coroutines.runBlocking
 
 @ApplicationScoped
 class ProductCaseService @Inject constructor(
@@ -44,7 +45,7 @@ class ProductCaseService @Inject constructor(
     }
 
     fun listProductCases(userId: UUID): ProductCaseListResponse {
-        val entities = ProductCaseRepository.findByUserId(userId)
+        val entities = productCaseRepository.findByUserId(userId)
         val domains = entities.map { DomainMapper.toDomain(it) }
         return ProductCaseListResponse(
             items = domains.map { toResponse(it) },
@@ -151,7 +152,7 @@ class ProductCaseService @Inject constructor(
 
         // Phase 2: AI pipeline on selected images (photos + extracted frames)
         val allAssets = mediaAssetRepository.findByProductCaseId(id)
-        val pipelineResult = aiOrchestrator.runPipeline(entity, allAssets)
+        val pipelineResult = runBlocking { aiOrchestrator.runPipeline(entity, allAssets) }
 
         entity.productFacts = pipelineResult.productFacts?.let { pf ->
             ProductFactsEmbeddable(
@@ -194,7 +195,7 @@ class ProductCaseService @Inject constructor(
         if (entity.userId != userId) throw NotFoundException()
 
         entity.status = ProductCaseStatus.RESEARCHING
-        val researchResult = aiOrchestrator.runResearch(entity)
+        val researchResult = runBlocking { aiOrchestrator.runResearch(entity) }
 
         entity.marketResearchResult = MarketResearchEmbeddable(
             estimatedMarketLowAmount = researchResult.estimatedMarketLow.amount,
@@ -233,7 +234,13 @@ class ProductCaseService @Inject constructor(
             desiredMinimumPrice = pricingProfile?.desiredMinimumPrice,
             desiredMinimumProfit = pricingProfile?.desiredMinimumProfit,
             targetMarginPercent = pricingProfile?.targetMarginPercent,
-            taxProfile = pricingProfile
+            taxProfile = pricingProfile?.let {
+                TaxProfile(
+                    vatRatePercent = it.vatRatePercent ?: BigDecimal.ZERO,
+                    isVatRegistered = it.taxMode != null,
+                    description = it.taxMode?.name
+                )
+            }
         )
 
         val recommendation = pricingEngine.calculate(input)
@@ -352,9 +359,9 @@ class ProductCaseService @Inject constructor(
 
         val listing = if (request.platform == MarketplacePlatform.EBAY) {
             // Delegate to eBay service for real API publish
-            val result = ebayService.createDraftListing(domainCase, domainDraft)
+            val result = runBlocking { ebayService.createDraftListing(domainCase, domainDraft) }
             // Also publish immediately since user clicked "publish"
-            val published = ebayService.publishListing(result.id.value)
+            val published = runBlocking { ebayService.publishListing(result.id.value) }
             MarketplaceListingEntity().apply {
                 id = UUID.fromString(published.id.value)
                 productCaseId = draft.productCaseId
@@ -458,7 +465,7 @@ class ProductCaseService @Inject constructor(
     }
 
     fun getDashboard(userId: UUID): DashboardResponse {
-        val entities = ProductCaseRepository.findByUserId(userId)
+        val entities = productCaseRepository.findByUserId(userId)
         val items = entities.map { entity ->
             val listings = marketplaceListingRepository.findByProductCaseId(entity.id)
             val ebay = listings.find { it.platform == MarketplacePlatform.EBAY }

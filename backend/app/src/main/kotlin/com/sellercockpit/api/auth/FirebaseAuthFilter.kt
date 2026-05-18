@@ -16,7 +16,7 @@ import javax.crypto.spec.SecretKeySpec
 
 /**
  * Validates Firebase ID tokens from Authorization: Bearer ***
- * Does NOT enforce auth on /health, /q/* (metrics/openapi), or /api/auth/verify.
+ * Does NOT enforce auth on /health, /q/ * (metrics/openapi), or /api/auth/verify.
  *
  * Token verification:
  *   1. Split JWT header.payload.signature
