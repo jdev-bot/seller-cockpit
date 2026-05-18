@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch, TextInput,
-  Alert, ActivityIndicator, Linking
+  Alert, Linking
 } from 'react-native';
 import { useApi } from '../hooks/useApi';
 import { useAuth } from '../hooks/useAuth';
+import { SkeletonList } from '../components/Skeleton';
+import { ErrorRetry } from '../components/ErrorRetry';
+import { OfflineBanner } from '../components/OfflineBanner';
+import { LoadingButton } from '../components/LoadingButton';
 
 export default function SettingsScreen() {
   const api = useApi();
@@ -12,6 +16,7 @@ export default function SettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [connections, setConnections] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const [defaultShipping, setDefaultShipping] = useState('');
   const [defaultPackaging, setDefaultPackaging] = useState('');
@@ -27,11 +32,13 @@ export default function SettingsScreen() {
 
   const loadSettings = async () => {
     try {
+      setError(null);
       setLoading(true);
       const cons = await api.listConnections();
       setConnections(cons || []);
     } catch (e: any) {
       console.warn('Failed to load settings:', e.message);
+      setError(e.message || 'Failed to load settings');
     } finally {
       setLoading(false);
     }
@@ -89,8 +96,21 @@ export default function SettingsScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" />
+      <View style={styles.container}>
+        <OfflineBanner />
+        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+          <Text style={styles.header}>Settings</Text>
+          <SkeletonList count={4} />
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <OfflineBanner />
+        <ErrorRetry message={error} onRetry={loadSettings} />
       </View>
     );
   }
@@ -99,8 +119,10 @@ export default function SettingsScreen() {
   const kzConn = connections.find((c: any) => c.platform === 'KLEINANZEIGEN');
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.header}>Settings</Text>
+    <View style={styles.container}>
+      <OfflineBanner />
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <Text style={styles.header}>Settings</Text>
 
       {/* Profile */}
       <View style={styles.card}>
@@ -124,11 +146,13 @@ export default function SettingsScreen() {
             </Text>
           </View>
           <TouchableOpacity
-            style={[styles.connBtn, ebayConn?.connected ? styles.connBtnActive : styles.connBtnInactive]}
+            style={[styles.connBtn, ebayConn?.connected ? styles.connBtnActive : styles.connBtnInactive, saving && { opacity: 0.6 }]}
             onPress={ebayConn?.connected ? handleDisconnectEbay : handleConnectEbay}
             disabled={saving}
           >
-            <Text style={styles.connBtnText}>{ebayConn?.connected ? 'Disconnect' : 'Connect'}</Text>
+            <Text style={[styles.connBtnText, !ebayConn?.connected && { color: '#fff' }]}>
+              {saving ? 'Working...' : ebayConn?.connected ? 'Disconnect' : 'Connect'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -236,7 +260,8 @@ export default function SettingsScreen() {
           <Text style={styles.link}>Open Source on GitHub</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 

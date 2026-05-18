@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Linking
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Linking
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useApi } from '../hooks/useApi';
+import { SkeletonList } from '../components/Skeleton';
+import { ErrorRetry } from '../components/ErrorRetry';
+import { OfflineBanner } from '../components/OfflineBanner';
+import { LoadingButton } from '../components/LoadingButton';
 
 export default function EbayPublishScreen() {
   const { id, draftId } = useLocalSearchParams<{ id: string; draftId: string }>();
@@ -79,8 +83,21 @@ export default function EbayPublishScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" />
+      <View style={styles.container}>
+        <OfflineBanner />
+        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+          <Text style={styles.header}>Publish to eBay</Text>
+          <SkeletonList count={3} />
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (error && !ebayConnected && !result) {
+    return (
+      <View style={styles.container}>
+        <OfflineBanner />
+        <ErrorRetry message={error} onRetry={load} />
       </View>
     );
   }
@@ -88,7 +105,9 @@ export default function EbayPublishScreen() {
   // Not connected view
   if (!ebayConnected) {
     return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.container}>
+        <OfflineBanner />
+        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Text style={styles.header}>Publish to eBay</Text>
 
         <View style={styles.card}>
@@ -107,13 +126,16 @@ export default function EbayPublishScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+    </View>
     );
   }
 
   // Success result view
   if (result) {
     return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <View style={styles.container}>
+        <OfflineBanner />
+        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Text style={styles.header}>Published! ✅</Text>
 
         <View style={[styles.card, styles.successCard]}>

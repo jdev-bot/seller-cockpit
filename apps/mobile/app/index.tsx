@@ -1,10 +1,13 @@
-import React, { useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useApi } from './hooks/useApi';
 import { useAuth } from './hooks/useAuth';
-import { useState } from 'react';
 import { usePushNotifications } from './hooks/usePushNotifications';
+import { SkeletonList } from './components/Skeleton';
+import { EmptyState } from './components/EmptyState';
+import { ErrorRetry } from './components/ErrorRetry';
+import { OfflineBanner } from './components/OfflineBanner';
 
 const STATUS_LABELS: Record<string, string> = {
   CAPTURED: 'Captured',
@@ -43,11 +46,10 @@ export default function DashboardScreen() {
   const [cases, setCases] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Register push notifications
   usePushNotifications();
 
-  // Redirect to login if not authenticated
   useEffect(() => {
     if (!auth.isLoading && !auth.isAuthenticated) {
       router.replace('/(login)');
@@ -56,11 +58,13 @@ export default function DashboardScreen() {
 
   const load = async () => {
     try {
+      setError(null);
       setLoading(true);
       const items = await api.listProductCases();
       setCases(items);
     } catch (err: any) {
       console.error('Failed to load cases:', err.message);
+      setError(err.message || 'Failed to load your products');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -76,24 +80,21 @@ export default function DashboardScreen() {
     load();
   };
 
-  const handleNewProduct = () => {
-    router.push('/product/new');
-  };
-
   if (auth.isLoading) {
     return (
       <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" />
+        <SkeletonList count={6} />
       </View>
     );
   }
 
   if (!auth.isAuthenticated) {
-    return null; // Will redirect
+    return null;
   }
 
   return (
     <View style={styles.container}>
+      <OfflineBanner />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Seller Cockpit</Text>
         <View style={{ flexDirection: 'row', gap: 16 }}>
@@ -106,19 +107,22 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      <TouchableOpacity style={styles.newButton} onPress={handleNewProduct}>
+      <TouchableOpacity style={styles.newButton} onPress={() => router.push('/product/new')}>
         <Text style={styles.newButtonText}>+ New Product</Text>
       </TouchableOpacity>
 
       {loading ? (
-        <ActivityIndicator style={{ marginTop: 40 }} />
+        <SkeletonList count={5} />
+      ) : error ? (
+        <ErrorRetry message={error} onRetry={load} />
       ) : cases.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>No products yet</Text>
-          <Text style={styles.emptyText}>
-            Tap "New Product" to list your first item.
-          </Text>
-        </View>
+        <EmptyState
+          icon="📦"
+          title="No products yet"
+          subtitle="Tap + New Product to capture and list your first item."
+          actionLabel="New Product"
+          onAction={() => router.push('/product/new')}
+        />
       ) : (
         <FlatList
           data={cases}
@@ -147,7 +151,7 @@ export default function DashboardScreen() {
                 <Text style={styles.metaText}>{item.sellerMode?.replace('_', ' ')}</Text>
                 {item.pricingRecommendation?.recommendedPrice && (
                   <Text style={styles.metaText}>
-                    {item.pricingRecommendation.recommendedPrice.amount} {' '}
+                    {item.pricingRecommendation.recommendedPrice.amount}{' '}
                     {item.pricingRecommendation.recommendedPrice.currency}
                   </Text>
                 )}
@@ -172,8 +176,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
-  logoutBtn: { padding: 8 },
-  logoutText: { color: '#9ca3af' },
+  headerIconText: { color: '#9ca3af', fontSize: 18 },
+  logoutText: { color: '#9ca3af', fontSize: 14 },
   newButton: {
     margin: 16,
     backgroundColor: '#111827',
@@ -213,7 +217,4 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   metaText: { color: '#6b7280', fontSize: 13 },
-  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
-  emptyTitle: { fontSize: 18, fontWeight: '600', color: '#111827', marginBottom: 8 },
-  emptyText: { color: '#6b7280', textAlign: 'center' },
 });
