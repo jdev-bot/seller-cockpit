@@ -1,0 +1,198 @@
+# =============================================================================
+# Seller Cockpit — Production Compose Stack (with Traefik reverse proxy)
+# =============================================================================
+# Usage:
+#   cp .env.example .env
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Prerequisites:
+#   - Docker + Docker Compose v2.20+
+#   - A domain name pointing to the server
+#   - Traefik dashboard exposed only via VPN or basic-auth
+# =============================================================================
+
+name: seller-cockpit-prod
+
+services:
+  # ── Traefik (Reverse Proxy + TLS) ──────────────────────────────────────
+  traefik:
+    image: traefik:v3.1
+    container_name: sc-traefik
+    restart: unless-stopped
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-admin@example.com}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--log.level=${TRAEFIK_LOG_LEVEL:-INFO}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-certs:/letsencrypt
+    networks:
+      - sc-public
+      - sc-internal
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.rule=Host(`${TRAEFIK_DASHBOARD_HOST:-traefik.yourdomain.com}`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.middlewares.traefik-auth.basicauth.users=${TRAEFIK_AUTH_USERS:-}"  # htpasswd -nb admin password
+      - "traefik.http.routers.traefik.middlewares=traefik-auth"
+
+  # ── PostgreSQL ─────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: sc-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sc-internal
+    # Not exposed publicly — only API talks to it
+
+  # ── MinIO ────────────────────────────────────────────────────────────────
+  minio:
+    image: minio/minio:RELEASE.2024-06-29T01-20-47Z
+    container_name: sc-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sc-internal
+      - sc-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.minio.rule=Host(`${MINIO_HOST:-minio.yourdomain.com}`)"
+      - "traefik.http.routers.minio.entrypoints=websecure"
+      - "traefik.http.routers.minio.tls.certresolver=letsencrypt"
+      - "traefik.http.services.minio.loadbalancer.server.port=9001"
+      - "traefik.http.routers.minio-console.rule=Host(`${MINIO_HOST:-minio.yourdomain.com}`) && PathPrefix(`/console`)"
+      - "traefik.http.routers.minio-console.entrypoints=websecure"
+      - "traefik.http.routers.minio-console.tls.certresolver=letsencrypt"
+      - "traefik.http.services.minio-console.loadbalancer.server.port=9001"
+
+  # ── Redis ────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: sc-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sc-internal
+
+  # ── API (Quarkus backend) ──────────────────────────────────────────────
+  api:
+    image: ${API_IMAGE:-ghcr.io/jdev-bot/seller-cockpit-api:latest}
+    container_name: sc-api
+    restart: unless-stopped
+    environment:
+      POSTGRES_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      MINIO_URL: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      AI_MOCK_ENABLED: "false"
+      AI_PRIMARY_PROVIDER: ${AI_PRIMARY_PROVIDER}
+      AI_FALLBACK_PROVIDER: ${AI_FALLBACK_PROVIDER}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      EBAY_API_BASE_URL: ${EBAY_API_BASE_URL}
+      EBAY_AUTH_URL: ${EBAY_AUTH_URL}
+      EBAY_CLIENT_ID: ${EBAY_CLIENT_ID}
+      EBAY_CLIENT_SECRET: ${EBAY_CLIENT_SECRET}
+      EBAY_REDIRECT_URI: https://${API_HOST}/api/marketplaces/ebay/callback
+      EBAY_FINDING_APP_ID: ${EBAY_FINDING_APP_ID}
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      QUARKUS_LOG_LEVEL: ${QUARKUS_LOG_LEVEL:-INFO}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - sc-internal
+      - sc-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`${API_HOST:-api.yourdomain.com}`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.api.loadbalancer.server.port=8080"
+      - "traefik.http.middlewares.api-cors.headers.accesscontrolallowmethods=GET,POST,PUT,PATCH,DELETE,OPTIONS"
+      - "traefik.http.middlewares.api-cors.headers.accesscontrolallowheaders=Content-Type,Authorization"
+      - "traefik.http.middlewares.api-cors.headers.accesscontrolalloworiginlist=${CORS_ORIGINS:-https://yourdomain.com}"
+      - "traefik.http.routers.api.middlewares=api-cors"
+
+  # ── MinIO Bucket Init ────────────────────────────────────────────────────
+  minio-init:
+    image: minio/mc:RELEASE.2024-06-29T01-20-47Z
+    container_name: sc-minio-init
+    restart: "no"
+    entrypoint: >
+      /bin/sh -c "
+      until curl -sf http://minio:9000/minio/health/live; do sleep 2; done;
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
+      mc mb local/${MINIO_BUCKET} --ignore-existing;
+      mc anonymous set download local/${MINIO_BUCKET};
+      echo 'MinIO init complete';
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - sc-internal
+
+volumes:
+  postgres-data:
+  minio-data:
+  redis-data:
+  traefik-certs:
+
+networks:
+  sc-public:
+    driver: bridge
+  sc-internal:
+    driver: bridge
+    internal: true   # No direct internet access for DB/cache

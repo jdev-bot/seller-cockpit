@@ -1,32 +1,49 @@
-version: "3.9"
+# =============================================================================
+# Seller Cockpit — Local Development Compose Stack
+# =============================================================================
+# Usage:
+#   cp .env.example .env
+#   docker compose up --build
+#
+# Services: Postgres 16, MinIO (S3), Redis 7, Quarkus API
+# =============================================================================
+
+name: seller-cockpit
 
 services:
+  # ── PostgreSQL ───────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: sc-postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: sellercockpit
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-sellercockpit}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      - ./backend/app/src/main/resources/db/migration:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - sc-internal
 
+  # ── MinIO (S3-compatible object storage) ─────────────────────────────────
   minio:
     image: minio/minio:RELEASE.2024-06-29T01-20-47Z
     container_name: sc-minio
+    restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
     volumes:
       - minio-data:/data
     command: server /data --console-address ":9001"
@@ -35,37 +52,68 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - sc-internal
 
+  # ── Redis (cache, pub/sub, job queue) ────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: sc-redis
+    restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis-data:/data
+    command: redis-server --appendonly yes
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - sc-internal
 
+  # ── API (Quarkus backend) ────────────────────────────────────────────────
   api:
     build:
       context: ../..
       dockerfile: backend/app/Dockerfile
     container_name: sc-api
+    restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "${API_PORT:-8080}:8080"
     environment:
-      POSTGRES_URL: jdbc:postgresql://postgres:5432/sellercockpit
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      # Database
+      POSTGRES_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-sellercockpit}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      # Object Storage
       MINIO_URL: http://minio:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
-      MINIO_BUCKET: seller-cockpit-media
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      MINIO_BUCKET: ${MINIO_BUCKET:-seller-cockpit-media}
+      # Cache
       REDIS_URL: redis://redis:6379
-      AI_MOCK_ENABLED: "true"
+      # AI (local dev uses mock by default)
+      AI_MOCK_ENABLED: ${AI_MOCK_ENABLED:-true}
+      AI_PRIMARY_PROVIDER: ${AI_PRIMARY_PROVIDER:-openai}
+      AI_FALLBACK_PROVIDER: ${AI_FALLBACK_PROVIDER:-anthropic}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # eBay (optional for local dev)
+      EBAY_API_BASE_URL: ${EBAY_API_BASE_URL:-https://api.ebay.com}
+      EBAY_AUTH_URL: ${EBAY_AUTH_URL:-https://auth.ebay.com}
+      EBAY_CLIENT_ID: ${EBAY_CLIENT_ID:-}
+      EBAY_CLIENT_SECRET: ${EBAY_CLIENT_SECRET:-}
+      EBAY_REDIRECT_URI: ${EBAY_REDIRECT_URI:-http://localhost:8080/api/marketplaces/ebay/callback}
+      EBAY_FINDING_APP_ID: ${EBAY_FINDING_APP_ID:-}
+      # Security
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-}
+      # Firebase (optional for local dev)
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      # Logging
+      QUARKUS_LOG_LEVEL: ${QUARKUS_LOG_LEVEL:-INFO}
     depends_on:
       postgres:
         condition: service_healthy
@@ -73,8 +121,33 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - sc-internal
+
+  # ── MinIO Bucket Init ────────────────────────────────────────────────────
+  minio-init:
+    image: minio/mc:RELEASE.2024-06-29T01-20-47Z
+    container_name: sc-minio-init
+    restart: "no"
+    entrypoint: >
+      /bin/sh -c "
+      until curl -sf http://minio:9000/minio/health/live; do sleep 2; done;
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minioadmin} ${MINIO_ROOT_PASSWORD:-minioadmin};
+      mc mb local/${MINIO_BUCKET:-seller-cockpit-media} --ignore-existing;
+      mc policy set public local/${MINIO_BUCKET:-seller-cockpit-media};
+      echo 'MinIO init complete';
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - sc-internal
 
 volumes:
   postgres-data:
   minio-data:
   redis-data:
+
+networks:
+  sc-internal:
+    driver: bridge
