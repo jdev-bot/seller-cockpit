@@ -29,7 +29,7 @@ class ScanCoverageService @Inject constructor(
             ?: throw NotFoundException("Product case not found")
         if (entity.userId != userId) throw NotFoundException()
 
-        val existing = ScanCoverageRepository.findByProductCaseId(productCaseId)
+        val existing = scanCoverageRepository.findByProductCaseId(productCaseId)
 
         val coverage = if (existing != null) {
             existing.gridRows = request.gridRows
@@ -78,7 +78,7 @@ class ScanCoverageService @Inject constructor(
             ?: throw NotFoundException()
         if (entity.userId != userId) throw NotFoundException()
 
-        val coverage = ScanCoverageRepository.findByProductCaseId(productCaseId)
+        val coverage = scanCoverageRepository.findByProductCaseId(productCaseId)
             ?: return null
 
         return toResponse(coverage)
