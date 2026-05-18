@@ -24,9 +24,11 @@ dependencies {
 
     implementation("io.quarkus:quarkus-kotlin")
     implementation("io.quarkus:quarkus-resteasy-reactive-jackson")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("io.quarkus:quarkus-resteasy-reactive")
     implementation("io.quarkus:quarkus-hibernate-orm-panache-kotlin")
     implementation("io.quarkus:quarkus-jdbc-postgresql")
+    testImplementation("io.quarkus:quarkus-jdbc-h2")
     implementation("io.quarkus:quarkus-flyway")
     implementation("io.quarkus:quarkus-smallrye-openapi")
     implementation("io.quarkus:quarkus-smallrye-health")
@@ -66,4 +68,7 @@ allOpen {
     annotation("jakarta.ws.rs.Path")
     annotation("jakarta.enterprise.context.ApplicationScoped")
     annotation("io.quarkus.test.junit.QuarkusTest")
+    annotation("jakarta.persistence.Entity")
+    annotation("jakarta.persistence.MappedSuperclass")
+    annotation("jakarta.persistence.Embeddable")
 }

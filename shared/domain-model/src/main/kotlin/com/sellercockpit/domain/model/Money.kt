@@ -1,5 +1,6 @@
 package com.sellercockpit.domain.model
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.Serializable
 import java.math.BigDecimal
@@ -7,8 +8,8 @@ import java.math.BigDecimal
 @Serializable
 data class Money(
     @Contextual
-    val amount: BigDecimal,
-    val currency: String = "EUR"
+    @JsonProperty("amount") val amount: BigDecimal,
+    @JsonProperty("currency") val currency: String = "EUR"
 ) {
     operator fun plus(other: Money): Money {
         require(other.currency == this.currency)

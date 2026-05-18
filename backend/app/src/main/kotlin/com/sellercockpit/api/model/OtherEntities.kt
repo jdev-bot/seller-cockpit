@@ -43,13 +43,13 @@ open class ListingDraftEntity : PanacheEntityBase {
     @Column(name = "currency", nullable = false)
     open var currency: String = "EUR"
 
-    @Column(name = "image_ids", columnDefinition = "jsonb")
+    @Convert(converter = JsonStringListConverter::class)
     open var imageIds: List<String>? = null
 
-    @Column(name = "attributes", columnDefinition = "jsonb")
+    @Convert(converter = JsonMapConverter::class)
     open var attributes: Map<String, String>? = null
 
-    @Column(name = "warnings", columnDefinition = "jsonb")
+    @Convert(converter = JsonStringListConverter::class)
     open var warnings: List<String>? = null
 
     @Column(name = "ready_to_publish", nullable = false)
@@ -141,7 +141,7 @@ open class MediaAssetEntity : PanacheEntityBase {
     @Column(name = "sort_order")
     open var sortOrder: Int? = null
 
-    @Column(name = "metadata", columnDefinition = "jsonb")
+    @Convert(converter = JsonMapConverter::class)
     open var metadata: Map<String, String>? = null
 
     @Column(name = "created_at", nullable = false)
@@ -184,10 +184,10 @@ open class ScanCoverageEntity : PanacheEntityBase {
     @Column(name = "auto_stopped", nullable = false)
     open var autoStopped: Boolean = false
 
-    @Column(name = "cell_data", columnDefinition = "jsonb")
+    @Column(name = "cell_data")
     open var cellData: String = "[]"
 
-    @Column(name = "missing_regions", columnDefinition = "jsonb")
+    @Column(name = "missing_regions")
     open var missingRegions: String = "[]"
 
     @Column(name = "created_at", nullable = false)

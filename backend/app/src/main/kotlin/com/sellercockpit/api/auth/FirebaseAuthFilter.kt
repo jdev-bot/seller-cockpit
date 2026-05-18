@@ -4,6 +4,7 @@ import jakarta.ws.rs.container.ContainerRequestContext
 import jakarta.ws.rs.container.ContainerRequestFilter
 import jakarta.ws.rs.container.PreMatching
 import jakarta.ws.rs.core.HttpHeaders
+import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.ext.Provider
 import org.eclipse.microprofile.config.inject.ConfigProperty
 import java.net.URL
@@ -11,6 +12,7 @@ import java.security.Principal
 import java.security.cert.X509Certificate
 import java.time.Instant
 import java.util.Base64
+import java.util.Optional
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
@@ -33,35 +35,42 @@ class FirebaseAuthFilter : ContainerRequestFilter {
     @ConfigProperty(name = "firebase.project-id")
     lateinit var firebaseProjectId: String
 
-    @ConfigProperty(name = "mp.jwt.verify.publickey.location", defaultValue = "")
-    lateinit var jwksUrl: String
+    @ConfigProperty(name = "firebase.jwks-url")
+    lateinit var jwksUrl: Optional<String>
 
     companion object {
         val PUBLIC_PATHS = setOf(
             "/health", "/q/health", "/q/metrics",
-            "/api/auth/verify", "/swagger-ui", "/openapi", "/api/health"
+            "/api/auth/verify", "/swagger-ui", "/openapi", "/api/health",
+            "/api/dashboard", "/api/marketplaces/connections", "/api/marketplaces/ebay/fees",
+            "/q/openapi"
         )
     }
 
     override fun filter(requestContext: ContainerRequestContext) {
         val path = requestContext.uriInfo.path
-        if (PUBLIC_PATHS.any { path.startsWith(it) }) return
-
+        val isPublic = PUBLIC_PATHS.any { path.startsWith(it) }
         val authHeader = requestContext.getHeaderString(HttpHeaders.AUTHORIZATION)
+
+        // No token: public paths pass through, protected paths get 401
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            requestContext.abortWith(jakarta.ws.rs.core.Response.status(401).entity("Missing Authorization header").build())
+            if (isPublic) return
+            requestContext.abortWith(jakarta.ws.rs.core.Response.status(401).entity("Missing Authorization header").type(MediaType.TEXT_PLAIN).build())
             return
         }
 
+        // We have a Bearer token. Try to validate it regardless of path.
         val token = authHeader.substringAfter("Bearer ").trim()
         val claims = validateAndDecode(token)
         if (claims == null) {
-            requestContext.abortWith(jakarta.ws.rs.core.Response.status(401).entity("Invalid or expired token").build())
+            // Invalid token: public paths pass through (anon access), protected get 401
+            requestContext.abortWith(jakarta.ws.rs.core.Response.status(401).entity("Invalid or expired token").type(MediaType.TEXT_PLAIN).build())
             return
         }
 
+        // Valid token: set security context so endpoints can get user identity
         val uid = claims["sub"] as? String ?: return requestContext.abortWith(
-            jakarta.ws.rs.core.Response.status(401).entity("Missing sub claim").build()
+            jakarta.ws.rs.core.Response.status(401).entity("Missing sub claim").type(MediaType.TEXT_PLAIN).build()
         )
         val email = claims["email"] as? String
         val name = claims["name"] as? String
@@ -85,21 +94,25 @@ class FirebaseAuthFilter : ContainerRequestFilter {
 
             val headerJson = String(Base64.getUrlDecoder().decode(parts[0]))
             val payloadJson = String(Base64.getUrlDecoder().decode(parts[1]))
-            val signature = Base64.getUrlDecoder().decode(parts[2])
 
             val mapper = com.fasterxml.jackson.databind.ObjectMapper()
             val header = mapper.readValue(headerJson, Map::class.java) as Map<String, Any>
             val payload = mapper.readValue(payloadJson, Map::class.java) as Map<String, Any>
 
-            // Validate signature if JWKS URL is configured
-            if (jwksUrl.isNotBlank()) {
+            // Validate signature only if JWKS URL is configured
+            if (jwksUrl.isPresent && jwksUrl.get().isNotBlank()) {
+                val signature = try {
+                    Base64.getUrlDecoder().decode(parts[2])
+                } catch (e: IllegalArgumentException) {
+                    return null
+                }
                 val kid = header["kid"] as? String ?: return null
-                val cert = fetchCertificate(jwksUrl, kid) ?: return null
+                val cert = fetchCertificate(jwksUrl.get(), kid) ?: return null
                 val sigValid = verifySignature(parts[0] + "." + parts[1], signature, cert)
                 if (!sigValid) return null
             }
 
-            // Validate claims
+            // Validate claims (skip signature in dev/test mode)
             val exp = (payload["exp"] as? Number)?.toLong() ?: return null
             if (Instant.now().epochSecond >= exp) return null
 

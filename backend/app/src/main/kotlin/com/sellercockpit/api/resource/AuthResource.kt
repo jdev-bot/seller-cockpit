@@ -12,13 +12,13 @@ import java.util.UUID
 
 @Path("/api/auth")
 @Produces(MediaType.APPLICATION_JSON)
-@Consumes(MediaType.APPLICATION_JSON)
 class AuthResource @Inject constructor(
     private val userService: UserService
 ) {
 
     @POST
     @Path("/verify")
+    @Consumes(MediaType.APPLICATION_JSON)
     fun verifyToken(@Context sc: SecurityContext): AuthVerifyResponse {
         val authUser = sc.userPrincipal as? AuthenticatedUser
             ?: return AuthVerifyResponse(

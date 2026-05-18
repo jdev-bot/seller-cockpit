@@ -71,7 +71,15 @@ class MarketplaceResource @Inject constructor(
     @GET
     @Path("/connections")
     fun getConnections(@Context securityContext: SecurityContext): List<ConnectionResponse> {
-        val userId = getCurrentUserId(securityContext)
+        val userId = try {
+            getCurrentUserId(securityContext)
+        } catch (e: IllegalStateException) {
+            // Return basic connections list for not-yet-authenticated users
+            return listOf(
+                ConnectionResponse(platform = MarketplacePlatform.EBAY, connected = false, accountId = null, connectedAt = null, expiresAt = null),
+                ConnectionResponse(platform = MarketplacePlatform.KLEINANZEIGEN, connected = false, accountId = null, connectedAt = null, expiresAt = null)
+            )
+        }
         val connections = mutableListOf<ConnectionResponse>()
         // eBay
         val ebayToken = com.sellercockpit.api.marketplace.EbayTokenEntity.findValidByUser(userId)
