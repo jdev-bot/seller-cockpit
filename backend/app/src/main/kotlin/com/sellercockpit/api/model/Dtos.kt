@@ -157,3 +157,41 @@ data class ConnectMarketplaceRequest(
     val platform: MarketplacePlatform,
     val authCode: String? = null
 )
+
+// Scan coverage DTOs
+
+data class ScanCoverageRequest(
+    val gridRows: Int = 4,
+    val gridCols: Int = 6,
+    val coveredCells: Int = 0,
+    val totalCells: Int = 24,
+    val coveragePercent: Int = 0,
+    val elapsedMs: Long = 0,
+    val isComplete: Boolean = false,
+    val autoStopped: Boolean = false,
+    val cellData: List<Boolean> = emptyList(),
+    val missingRegions: List<MissingRegionDto> = emptyList()
+)
+
+data class MissingRegionDto(
+    val row: Int,
+    val col: Int,
+    val label: String
+)
+
+data class ScanCoverageResponse(
+    val id: String,
+    val productCaseId: String,
+    val gridRows: Int,
+    val gridCols: Int,
+    val coveredCells: Int,
+    val totalCells: Int,
+    val coveragePercent: Int,
+    val elapsedMs: Long,
+    val isComplete: Boolean,
+    val autoStopped: Boolean,
+    val cellData: List<Boolean>,
+    val missingRegions: List<MissingRegionDto>,
+    val createdAt: String,
+    val updatedAt: String
+)

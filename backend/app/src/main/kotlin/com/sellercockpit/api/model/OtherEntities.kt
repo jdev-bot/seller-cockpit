@@ -146,3 +146,52 @@ open class MediaAssetEntity : PanacheEntityBase {
     @Column(name = "created_at", nullable = false)
     open var createdAt: Instant = Instant.now()
 }
+
+@Entity
+@Table(name = "scan_coverages")
+open class ScanCoverageEntity : PanacheEntityBase {
+    companion object : PanacheCompanion<ScanCoverageEntity>
+
+    @Id
+    @Column(name = "id")
+    open lateinit var id: UUID
+
+    @Column(name = "product_case_id", nullable = false, unique = true)
+    open lateinit var productCaseId: UUID
+
+    @Column(name = "grid_rows", nullable = false)
+    open var gridRows: Int = 4
+
+    @Column(name = "grid_cols", nullable = false)
+    open var gridCols: Int = 6
+
+    @Column(name = "covered_cells", nullable = false)
+    open var coveredCells: Int = 0
+
+    @Column(name = "total_cells", nullable = false)
+    open var totalCells: Int = 24
+
+    @Column(name = "coverage_percent", nullable = false)
+    open var coveragePercent: Int = 0
+
+    @Column(name = "elapsed_ms", nullable = false)
+    open var elapsedMs: Long = 0
+
+    @Column(name = "is_complete", nullable = false)
+    open var isComplete: Boolean = false
+
+    @Column(name = "auto_stopped", nullable = false)
+    open var autoStopped: Boolean = false
+
+    @Column(name = "cell_data", columnDefinition = "jsonb")
+    open var cellData: String = "[]"
+
+    @Column(name = "missing_regions", columnDefinition = "jsonb")
+    open var missingRegions: String = "[]"
+
+    @Column(name = "created_at", nullable = false)
+    open var createdAt: Instant = Instant.now()
+
+    @Column(name = "updated_at", nullable = false)
+    open var updatedAt: Instant = Instant.now()
+}

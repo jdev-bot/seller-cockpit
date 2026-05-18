@@ -6,12 +6,10 @@ import { AuthProvider } from './hooks/useAuth';
 
 export default function RootLayout() {
   useEffect(() => {
-    // Handle deep links (e.g., seller-cockpit://ebay/callback?code=...)
     const sub = Linking.addEventListener('url', (event) => {
       const url = event.url;
       if (url.includes('/ebay/callback')) {
         // Route to ebay-callback screen which parses query params
-        // Expo Router handles this automatically if the URL scheme is registered
       }
     });
     return () => sub.remove();
@@ -75,6 +73,13 @@ export default function RootLayout() {
           name="product/capture"
           options={{
             title: 'Capture Product',
+            presentation: 'modal',
+          }}
+        />
+        <Stack.Screen
+          name="product/scan-coverage"
+          options={{
+            title: 'Scan Coverage',
             presentation: 'modal',
           }}
         />

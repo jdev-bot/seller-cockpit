@@ -174,6 +174,13 @@ export function useApi() {
     assistedPublish: (draftId: string) =>
       request<any>('POST', `/api/marketplaces/kleinanzeigen/assisted-publish/${draftId}`),
 
+    // Scan coverage
+    saveScanCoverage: (productCaseId: string, payload: any) =>
+      request('POST', `/api/product-cases/${productCaseId}/scan-coverage`, payload),
+
+    getScanCoverage: (productCaseId: string) =>
+      request<any>('GET', `/api/product-cases/${productCaseId}/scan-coverage`),
+
     // Notifications
     registerPushToken: (token: string) =>
       request<void>('POST', '/api/devices/register', { fcmToken: token }),
