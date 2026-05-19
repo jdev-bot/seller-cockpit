@@ -1,19 +1,33 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useApi } from '../hooks/useApi';
+import { SkeletonList } from '../components/Skeleton';
+import { ErrorRetry } from '../components/ErrorRetry';
+import { OfflineBanner } from '../components/OfflineBanner';
 
 export default function PricingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const api = useApi();
   const [pc, setPc] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [calculating, setCalculating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
-    const data = await api.getProductCase(id);
-    setPc(data);
+    try {
+      setError(null);
+      setLoading(true);
+      const data = await api.getProductCase(id);
+      setPc(data);
+    } catch (e: any) {
+      console.warn(e);
+      setError(e.message || 'Failed to load pricing');
+    } finally {
+      setLoading(false);
+    }
   }, [id, api]);
 
   useEffect(() => { load(); }, [load]);
@@ -24,14 +38,40 @@ export default function PricingScreen() {
     try {
       await api.recalculatePricing(id, pc?.pricingProfile);
       await load();
-    } catch (e) {
+    } catch (e: any) {
       console.warn(e);
+      setError(e.message || 'Pricing calculation failed');
     } finally {
       setCalculating(false);
     }
   };
 
-  if (!pc) return <View style={styles.center}><ActivityIndicator size="large" color="#2563eb" /></View>;
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <OfflineBanner />
+        <SkeletonList count={5} />
+      </View>
+    );
+  }
+
+  if (error && !pc) {
+    return (
+      <View style={styles.container}>
+        <OfflineBanner />
+        <ErrorRetry message={error} onRetry={load} />
+      </View>
+    );
+  }
+
+  if (!pc) {
+    return (
+      <View style={styles.container}>
+        <OfflineBanner />
+        <View style={styles.center}><ActivityIndicator size="large" color="#2563eb" /></View>
+      </View>
+    );
+  }
 
   const rec = pc.pricingRecommendation;
   const mode = pc.sellerMode;
@@ -71,6 +111,7 @@ export default function PricingScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <OfflineBanner />
       <Text style={styles.heading}>Pricing</Text>
       <Text style={styles.mode}>Mode: {mode.replace(/_/g, ' ')}</Text>
 
@@ -104,6 +145,12 @@ export default function PricingScreen() {
             <Text style={styles.confidenceText}>Confidence: {rec.confidence}</Text>
           </View>
 
+          {error && (
+            <View style={styles.errorCard}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
           <TouchableOpacity style={styles.btn} onPress={onRecalculate} disabled={calculating}>
             <Text style={styles.btnText}>{calculating ? 'Recalculating...' : 'Recalculate'}</Text>
           </TouchableOpacity>
@@ -117,7 +164,7 @@ export default function PricingScreen() {
   );
 }
 
-function PriceRow({ label, value, bold, highlight, warning }: { label: string; value?: number; bold?: boolean; highlight?: boolean; warning?: boolean }) {
+function PriceRow({ label, value, bold, highlight, warning }: { label: string; value?: string | number; bold?: boolean; highlight?: boolean; warning?: boolean }) {
   if (value === undefined || value === null) return null;
   const isNum = typeof value === 'number';
   const text = isNum ? `${value.toFixed(2)} €` : `${value}`;
@@ -132,21 +179,23 @@ function PriceRow({ label, value, bold, highlight, warning }: { label: string; v
 }
 
 const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f8f9fa' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  container: { padding: 16, backgroundColor: '#f8f9fa', flexGrow: 1 },
-  heading: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 4 },
-  mode: { fontSize: 13, color: '#6b7280', marginBottom: 12, textTransform: 'capitalize' },
+  heading: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 4, marginTop: 12, marginHorizontal: 16 },
+  mode: { fontSize: 13, color: '#6b7280', marginBottom: 12, textTransform: 'capitalize', marginHorizontal: 16 },
   empty: { alignItems: 'center', marginTop: 40 },
   emptyText: { color: '#6b7280', fontSize: 14, marginBottom: 16 },
-  pricingCard: { backgroundColor: '#ffffff', borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#f3f4f6' },
+  pricingCard: { backgroundColor: '#ffffff', borderRadius: 12, padding: 14, marginBottom: 12, marginHorizontal: 16, borderWidth: 1, borderColor: '#f3f4f6' },
   priceRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' },
   priceLabel: { fontSize: 14, color: '#6b7280' },
   priceValue: { fontSize: 15, color: '#111827' },
-  feesCard: { backgroundColor: '#ffffff', borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#f3f4f6' },
+  feesCard: { backgroundColor: '#ffffff', borderRadius: 12, padding: 14, marginBottom: 12, marginHorizontal: 16, borderWidth: 1, borderColor: '#f3f4f6' },
   feesTitle: { fontSize: 14, fontWeight: '700', color: '#374151', marginBottom: 6 },
-  explainBox: { backgroundColor: '#f0f9ff', borderRadius: 10, padding: 12, marginBottom: 12 },
+  explainBox: { backgroundColor: '#f0f9ff', borderRadius: 10, padding: 12, marginBottom: 12, marginHorizontal: 16 },
   explainText: { fontSize: 13, color: '#0c4a6e', lineHeight: 18 },
   confidenceText: { fontSize: 12, color: '#0ea5e9', marginTop: 6, fontWeight: '600' },
-  btn: { backgroundColor: '#2563eb', paddingVertical: 14, borderRadius: 10, alignItems: 'center', marginBottom: 10 },
+  errorCard: { backgroundColor: '#fef2f2', borderRadius: 10, padding: 12, marginBottom: 12, marginHorizontal: 16, borderWidth: 1, borderColor: '#fecaca' },
+  errorText: { color: '#dc2626', fontSize: 13, fontWeight: '500' },
+  btn: { backgroundColor: '#2563eb', paddingVertical: 14, borderRadius: 10, alignItems: 'center', marginBottom: 10, marginHorizontal: 16 },
   btnText: { color: '#ffffff', fontWeight: '700', fontSize: 15 },
 });

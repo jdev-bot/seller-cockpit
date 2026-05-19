@@ -19,7 +19,7 @@ import java.time.Instant
 @ApplicationScoped
 class EbayFindingApi @Inject constructor(val objectMapper: ObjectMapper) {
 
-    @ConfigProperty(name = "ebay.finding.app-id")
+    @ConfigProperty(name = "ebay.finding.app-id", defaultValue = "")
     lateinit var appId: String
 
     @ConfigProperty(name = "ebay.finding.global-id", defaultValue = "EBAY-DE")

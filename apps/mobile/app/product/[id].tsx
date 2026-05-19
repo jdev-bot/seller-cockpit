@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator,
-  Image, RefreshControl, FlatList
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert,
+  Image, RefreshControl
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useApi } from '../hooks/useApi';
+import { SkeletonList } from '../components/Skeleton';
+import { EmptyState } from '../components/EmptyState';
+import { ErrorRetry } from '../components/ErrorRetry';
+import { OfflineBanner } from '../components/OfflineBanner';
 
 const STATUS_LABELS: Record<string, string> = {
   CAPTURED: 'Captured',
@@ -19,6 +23,19 @@ const STATUS_LABELS: Record<string, string> = {
   SOLD: 'Sold',
 };
 
+const STATUS_COLORS: Record<string, string> = {
+  CAPTURED: '#6b7280',
+  PROCESSING_MEDIA: '#2563eb',
+  NEEDS_USER_INFO: '#ea580c',
+  READY_FOR_RESEARCH: '#6b7280',
+  RESEARCHING: '#2563eb',
+  PRICED: '#059669',
+  LISTING_READY: '#059669',
+  PARTIALLY_PUBLISHED: '#7c3aed',
+  PUBLISHED: '#7c3aed',
+  SOLD: '#059669',
+};
+
 export default function ProductCaseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -26,15 +43,18 @@ export default function ProductCaseDetailScreen() {
   const [pc, setPc] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
     try {
+      setError(null);
       setLoading(true);
       const data = await api.getProductCase(id);
       setPc(data);
-    } catch (e) {
+    } catch (e: any) {
       console.warn(e);
+      setError(e.message || 'Failed to load product');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -59,16 +79,33 @@ export default function ProductCaseDetailScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#2563eb" />
+      <View style={styles.container}>
+        <OfflineBanner />
+        <SkeletonList count={6} />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <OfflineBanner />
+        <ErrorRetry message={error} onRetry={load} />
       </View>
     );
   }
 
   if (!pc) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.emptyText}>Product case not found</Text>
+      <View style={styles.container}>
+        <OfflineBanner />
+        <EmptyState
+          icon="❓"
+          title="Product not found"
+          subtitle="The product case may have been deleted."
+          actionLabel="Back to Dashboard"
+          onAction={() => router.replace('/')}
+        />
       </View>
     );
   }
@@ -87,6 +124,7 @@ export default function ProductCaseDetailScreen() {
       style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
     >
+      <OfflineBanner />
       {/* Header with image */}
       <View style={styles.headerCard}>
         {pc.mediaAssets?.length > 0 ? (
@@ -103,7 +141,7 @@ export default function ProductCaseDetailScreen() {
         <View style={styles.headerOverlay}>
           <Text style={styles.title}>{pc.title || pc.productFacts?.title || 'Unnamed Product'}</Text>
           <Text style={styles.mode}>{pc.sellerMode?.replace(/_/g, ' ')}</Text>
-          <View style={styles.statusBadge}>
+          <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[pc.status] || '#6b7280' }]}>
             <Text style={styles.statusText}>{STATUS_LABELS[pc.status] || pc.status}</Text>
           </View>
         </View>
@@ -234,7 +272,7 @@ const styles = StyleSheet.create({
   headerOverlay: { padding: 16 },
   title: { fontSize: 22, fontWeight: 'bold', color: '#111827', marginBottom: 4 },
   mode: { fontSize: 14, color: '#6b7280', textTransform: 'capitalize', marginBottom: 8 },
-  statusBadge: { alignSelf: 'flex-start', backgroundColor: '#2563eb', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
+  statusBadge: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
   statusText: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
   card: { backgroundColor: '#ffffff', borderRadius: 12, padding: 16, marginHorizontal: 16, marginBottom: 16, borderWidth: 1, borderColor: '#e5e7eb' },
   cardTitle: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 10 },

@@ -31,8 +31,8 @@ import javax.crypto.spec.SecretKeySpec
  */
 @ApplicationScoped
 class EbayService @Inject constructor(
-    @ConfigProperty(name = "ebay.api.client-id", defaultValue = "") private val clientId: String,
-    @ConfigProperty(name = "ebay.api.client-secret", defaultValue = "") private val clientSecret: String,
+    @ConfigProperty(name = "ebay.api.client-id", defaultValue = "UNSET") private val clientId: String,
+    @ConfigProperty(name = "ebay.api.client-secret", defaultValue = "UNSET") private val clientSecret: String,
     @ConfigProperty(name = "ebay.api.base-url", defaultValue = "https://api.ebay.com") private val baseUrl: String,
     @ConfigProperty(name = "ebay.auth-url", defaultValue = "https://auth.ebay.com") private val authUrl: String,
     @ConfigProperty(name = "ebay.redirect-uri", defaultValue = "http://localhost:8080/api/marketplaces/ebay/callback") private val redirectUri: String,

@@ -11,10 +11,10 @@ import java.util.concurrent.TimeUnit
 
 @ApplicationScoped
 class StorageService @Inject constructor(
-    @ConfigProperty(name = "minio.url") private val minioUrl: String,
-    @ConfigProperty(name = "minio.access-key") private val accessKey: String,
-    @ConfigProperty(name = "minio.secret-key") private val secretKey: String,
-    @ConfigProperty(name = "minio.bucket") private val bucket: String
+    @ConfigProperty(name = "minio.url", defaultValue = "http://localhost:9000") private val minioUrl: String,
+    @ConfigProperty(name = "minio.access-key", defaultValue = "minioadmin") private val accessKey: String,
+    @ConfigProperty(name = "minio.secret-key", defaultValue = "minioadmin") private val secretKey: String,
+    @ConfigProperty(name = "minio.bucket", defaultValue = "seller-cockpit-media") private val bucket: String
 ) {
     private val client: MinioClient by lazy {
         MinioClient.builder()

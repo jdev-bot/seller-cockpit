@@ -1,12 +1,17 @@
 #!/bin/bash
 set -e
-GRADLE_VER=8.10.1
+GRADLE_VER=8.5
+export GRADLE_USER_HOME=/tmp/gradle-85-fresh
+GRADLE_DIST_DIR="${HOME}/.gradle-local-installs"
 GRADLE_ZIP=gradle-$GRADLE_VER-bin.zip
 GRADLE_DIR=gradle-$GRADLE_VER
-if [ ! -d "build/gradle/$GRADLE_DIR" ]; then
-  mkdir -p build/gradle
+
+if [ ! -d "$GRADLE_DIST_DIR/$GRADLE_DIR" ]; then
+  mkdir -p "$GRADLE_DIST_DIR"
+  # remove stale dists
+  rm -rf "$GRADLE_DIST_DIR"/gradle-8.10.1* "$GRADLE_DIST_DIR"/*.zip 2>/dev/null || true
   echo "Downloading Gradle $GRADLE_VER..."
-  curl -sL "https://services.gradle.org/distributions/$GRADLE_ZIP" -o "build/gradle/$GRADLE_ZIP"
-  unzip -q "build/gradle/$GRADLE_ZIP" -d build/gradle/
+  curl -sL "https://services.gradle.org/distributions/$GRADLE_ZIP" -o "$GRADLE_DIST_DIR/$GRADLE_ZIP"
+  unzip -q "$GRADLE_DIST_DIR/$GRADLE_ZIP" -d "$GRADLE_DIST_DIR/"
 fi
-exec "build/gradle/$GRADLE_DIR/bin/gradle" "$@"
+exec "$GRADLE_DIST_DIR/$GRADLE_DIR/bin/gradle" "$@"

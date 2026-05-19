@@ -16,7 +16,7 @@ import java.time.Duration
 
 @ApplicationScoped
 class OpenAIProvider @Inject constructor(
-    @ConfigProperty(name = "ai.openai.api-key") private val apiKey: String,
+    @ConfigProperty(name = "ai.openai.api-key", defaultValue = "") private val apiKey: String,
     @ConfigProperty(name = "ai.openai.base-url", defaultValue = "https://api.openai.com/v1") private val baseUrl: String,
     @ConfigProperty(name = "ai.openai.model", defaultValue = "gpt-4o") private val model: String,
     @ConfigProperty(name = "ai.openai.max-tokens", defaultValue = "4096") private val maxTokens: Int,

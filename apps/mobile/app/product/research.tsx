@@ -1,19 +1,33 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useApi } from '../hooks/useApi';
+import { SkeletonList } from '../components/Skeleton';
+import { ErrorRetry } from '../components/ErrorRetry';
+import { OfflineBanner } from '../components/OfflineBanner';
 
 export default function ResearchScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const api = useApi();
   const [pc, setPc] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
-    const data = await api.getProductCase(id);
-    setPc(data);
+    try {
+      setError(null);
+      setLoading(true);
+      const data = await api.getProductCase(id);
+      setPc(data);
+    } catch (e: any) {
+      console.warn(e);
+      setError(e.message || 'Failed to load research');
+    } finally {
+      setLoading(false);
+    }
   }, [id, api]);
 
   useEffect(() => { load(); }, [load]);
@@ -24,19 +38,46 @@ export default function ResearchScreen() {
     try {
       await api.runResearch(id);
       await load();
-    } catch (e) {
+    } catch (e: any) {
       console.warn(e);
+      setError(e.message || 'Research failed');
     } finally {
       setRunning(false);
     }
   };
 
-  if (!pc) return <View style={styles.center}><ActivityIndicator size="large" color="#2563eb" /></View>;
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <OfflineBanner />
+        <SkeletonList count={4} />
+      </View>
+    );
+  }
+
+  if (error && !pc) {
+    return (
+      <View style={styles.container}>
+        <OfflineBanner />
+        <ErrorRetry message={error} onRetry={load} />
+      </View>
+    );
+  }
+
+  if (!pc) {
+    return (
+      <View style={styles.container}>
+        <OfflineBanner />
+        <ErrorRetry message="Product not found" onRetry={load} />
+      </View>
+    );
+  }
 
   const mr = pc.marketResearchResult;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      <OfflineBanner />
       <Text style={styles.heading}>Market Research</Text>
 
       {!mr && (
@@ -77,6 +118,12 @@ export default function ResearchScreen() {
             </View>
           )}
 
+          {error && (
+            <View style={styles.errorCard}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
+
           <TouchableOpacity style={styles.btn} onPress={onRun} disabled={running}>
             <Text style={styles.btnText}>{running ? 'Refreshing...' : 'Refresh Research'}</Text>
           </TouchableOpacity>
@@ -91,25 +138,26 @@ export default function ResearchScreen() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  container: { padding: 16, backgroundColor: '#f8f9fa', flexGrow: 1 },
-  heading: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 12 },
+  container: { flex: 1, backgroundColor: '#f8f9fa' },
+  heading: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 12, marginTop: 12, marginHorizontal: 16 },
   empty: { alignItems: 'center', marginTop: 40 },
   emptyText: { color: '#6b7280', fontSize: 14, marginBottom: 16 },
-  rangeCard: { backgroundColor: '#ffffff', borderRadius: 12, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: '#f3f4f6', alignItems: 'center' },
+  rangeCard: { backgroundColor: '#ffffff', borderRadius: 12, padding: 16, marginBottom: 14, marginHorizontal: 16, borderWidth: 1, borderColor: '#f3f4f6', alignItems: 'center' },
   rangeLabel: { fontSize: 13, color: '#6b7280', marginBottom: 4 },
   rangeValue: { fontSize: 24, fontWeight: '800', color: '#111827' },
   rangeMid: { fontSize: 15, fontWeight: '600', color: '#2563eb', marginTop: 6 },
   confidence: { fontSize: 12, color: '#9ca3af', marginTop: 4 },
-  subHeading: { fontSize: 15, fontWeight: '700', color: '#374151', marginBottom: 8 },
-  compCard: { backgroundColor: '#ffffff', borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#f3f4f6' },
+  subHeading: { fontSize: 15, fontWeight: '700', color: '#374151', marginBottom: 8, marginHorizontal: 16 },
+  compCard: { backgroundColor: '#ffffff', borderRadius: 10, padding: 12, marginBottom: 8, marginHorizontal: 16, borderWidth: 1, borderColor: '#f3f4f6' },
   compTitle: { fontSize: 14, fontWeight: '600', color: '#111827', marginBottom: 4 },
   compRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
   compPlatform: { fontSize: 12, color: '#6b7280' },
   compPrice: { fontSize: 14, fontWeight: '700', color: '#111827' },
   compMeta: { fontSize: 12, color: '#9ca3af' },
-  warnBox: { backgroundColor: '#fef3c7', borderRadius: 8, padding: 10, marginBottom: 12 },
+  warnBox: { backgroundColor: '#fef3c7', borderRadius: 8, padding: 10, marginBottom: 12, marginHorizontal: 16 },
   warnText: { fontSize: 13, color: '#92400e', marginBottom: 2 },
-  btn: { backgroundColor: '#2563eb', paddingVertical: 14, borderRadius: 10, alignItems: 'center', marginBottom: 10 },
+  errorCard: { backgroundColor: '#fef2f2', borderRadius: 10, padding: 12, marginBottom: 12, marginHorizontal: 16, borderWidth: 1, borderColor: '#fecaca' },
+  errorText: { color: '#dc2626', fontSize: 13, fontWeight: '500' },
+  btn: { backgroundColor: '#2563eb', paddingVertical: 14, borderRadius: 10, alignItems: 'center', marginBottom: 10, marginHorizontal: 16 },
   btnText: { color: '#ffffff', fontWeight: '700', fontSize: 15 },
 });
