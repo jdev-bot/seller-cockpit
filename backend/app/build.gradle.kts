@@ -17,12 +17,8 @@ val quarkusPlatformVersion: String by project
 dependencies {
     implementation(enforcedPlatform("${quarkusPlatformGroupId}:${quarkusPlatformArtifactId}:${quarkusPlatformVersion}"))
 
-    implementation("io.quarkus:quarkus-smallrye-jwt")
-    implementation("io.quarkus:quarkus-oidc")
-    implementation("io.quarkus:quarkus-oidc-client")
-    implementation("org.jsoup:jsoup:1.17.2")
-
     implementation("io.quarkus:quarkus-kotlin")
+    implementation("org.jsoup:jsoup:1.17.2")
     implementation("io.quarkus:quarkus-resteasy-reactive-jackson")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("io.quarkus:quarkus-resteasy-reactive")
@@ -38,6 +34,7 @@ dependencies {
     implementation("io.quarkus:quarkus-scheduler")
 
     implementation("io.minio:minio:8.5.12")
+    implementation("com.google.firebase:firebase-admin:9.4.3")
 
     implementation(project(":shared:domain-model"))
 
